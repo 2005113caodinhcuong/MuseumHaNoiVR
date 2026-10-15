@@ -1,0 +1,14 @@
+{
+    "name": "Unity2005113caodinhcuong.ComUnityCloudGltfast.Editor.Tests",
+    "references": [
+        "Unity2005113caodinhcuong.ComUnityCloudGltfast.Editor",
+        "Unity2005113caodinhcuong.ComUnityCloudGltfast"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": []
+}

@@ -1,0 +1,11 @@
+{
+    "name": "Unity2005113caodinhcuong.ComUnityCloudGltfast.Tests",
+    "references": [
+        "Unity2005113caodinhcuong.ComUnityCloudGltfast"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": []
+}

@@ -1,9 +1,24 @@
 fileFormatVersion: 2
-guid: 26174897ef64413448aca77aa97d7fb8
+guid: 828e54ef7bca480459d468e95329e9b7
 ModelImporter:
   serializedVersion: 24501
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Material.001
+    second: {fileID: 2100000, guid: d6f43dc7088c5974cb9f901aaa2f0b88, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: VatLieu_Be
+    second: {fileID: 2100000, guid: 9181e69e49d0bac47a233cef77956994, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: VatLieu_Quai.001
+    second: {fileID: 2100000, guid: f2029066216b6a54eab6877392658c01, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
