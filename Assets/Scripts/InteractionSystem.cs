@@ -23,7 +23,11 @@ public class InteractionSystem : MonoBehaviour
     public float promptHeight = 0.5f;
 
     [Tooltip("Nội dung gợi ý tương tác theo kịch bản PDF")]
-    public string promptMessage = "Nhấn phím [E] hoặc Click chuột để xem chi tiết";
+    public string promptMessage = "Nhấn phím [E] hoặc Click chuột để Chiêm ngưỡng 3D & Xem chi tiết";
+
+    [Header("CHẾ ĐỘ QUAN SÁT 3D (3D INSPECT 360°)")]
+    [Tooltip("Quản lý chế độ nhấc hiện vật ra xoay 360 độ và zoom chi tiết")]
+    public PotteryInspector3D inspector3D;
 
     [Header("BẢNG THÔNG TIN HIỆN VẬT (INFO UI)")]
     [Tooltip("Panel UI 2D hiển thị thông tin hiện vật")]
@@ -97,6 +101,20 @@ public class InteractionSystem : MonoBehaviour
             if (mouseLook == null)
             {
                 mouseLook = GetComponentInParent<MouseLook>();
+            }
+        }
+
+        // Tự tìm hoặc khởi tạo PotteryInspector3D
+        if (inspector3D == null)
+        {
+            inspector3D = GetComponent<PotteryInspector3D>();
+            if (inspector3D == null && cam != null)
+            {
+                inspector3D = cam.GetComponent<PotteryInspector3D>();
+                if (inspector3D == null)
+                {
+                    inspector3D = cam.gameObject.AddComponent<PotteryInspector3D>();
+                }
             }
         }
 
@@ -429,7 +447,13 @@ public class InteractionSystem : MonoBehaviour
             descriptionText.text = pottery.GetFullInformation();
         }
 
-        // 4. HIỆN PANEL UI
+        // 4. KÍCH HOẠT CHẾ ĐỘ QUAN SÁT 3D XOAY 360 ĐỘ
+        if (inspector3D != null)
+        {
+            inspector3D.StartInspect(pottery);
+        }
+
+        // 5. HIỆN PANEL UI
         if (infoPanel != null)
         {
             infoPanel.SetActive(true);
@@ -444,6 +468,12 @@ public class InteractionSystem : MonoBehaviour
     public void CloseInfoPanel()
     {
         isInspecting = false;
+
+        // 0. ĐÓNG CHẾ ĐỘ QUAN SÁT 3D
+        if (inspector3D != null)
+        {
+            inspector3D.StopInspect();
+        }
 
         // Ẩn UI
         if (infoPanel != null)
@@ -616,8 +646,8 @@ public class InteractionSystem : MonoBehaviour
         frameRect.anchorMin = new Vector2(0.5f, 0.5f);
         frameRect.anchorMax = new Vector2(0.5f, 0.5f);
         frameRect.pivot = new Vector2(0.5f, 0.5f);
-        frameRect.sizeDelta = new Vector2(844f, 644f);
-        frameRect.anchoredPosition = Vector2.zero;
+        frameRect.sizeDelta = new Vector2(764f, 664f);
+        frameRect.anchoredPosition = new Vector2(430f, 0f); // Nằm gọn bên phải để nhường nửa trái cho hiện vật 3D
 
         Image frameImg = frameObj.GetComponent<Image>();
         frameImg.color = new Color(0.85f, 0.72f, 0.38f, 0.85f); // Viền vàng hoàng gia
@@ -642,12 +672,12 @@ public class InteractionSystem : MonoBehaviour
         titleRect.anchorMin = new Vector2(0f, 1f);
         titleRect.anchorMax = new Vector2(1f, 1f);
         titleRect.pivot = new Vector2(0.5f, 1f);
-        titleRect.sizeDelta = new Vector2(-60f, 55f);
+        titleRect.sizeDelta = new Vector2(-50f, 55f);
         titleRect.anchoredPosition = new Vector2(0f, -18f);
 
         TextMeshProUGUI titleTMP = titleObj.GetComponent<TextMeshProUGUI>();
         titleTMP.text = "TÊN HIỆN VẬT GỐM SỨ";
-        titleTMP.fontSize = 26f;
+        titleTMP.fontSize = 25f;
         titleTMP.fontStyle = FontStyles.Bold;
         titleTMP.alignment = TextAlignmentOptions.Center;
         titleTMP.color = new Color(1f, 0.86f, 0.38f, 1f);
@@ -660,30 +690,47 @@ public class InteractionSystem : MonoBehaviour
         divRect.anchorMin = new Vector2(0.5f, 1f);
         divRect.anchorMax = new Vector2(0.5f, 1f);
         divRect.pivot = new Vector2(0.5f, 1f);
-        divRect.sizeDelta = new Vector2(750f, 2f);
+        divRect.sizeDelta = new Vector2(680f, 2f);
         divRect.anchoredPosition = new Vector2(0f, -76f);
         Image divImg = dividerObj.GetComponent<Image>();
         divImg.color = new Color(0.85f, 0.72f, 0.38f, 0.5f);
 
-        // Text thông tin chi tiết đầy đủ (Độ nét cao, cỡ 19pt, trắng sáng, giãn dòng thoáng)
+        // Text thông tin chi tiết đầy đủ (Độ nét cao, cỡ 18pt, trắng sáng, giãn dòng thoáng)
         GameObject descObj = new GameObject("ArtifactDetails", typeof(RectTransform), typeof(TextMeshProUGUI));
         descObj.transform.SetParent(panelObj.transform, false);
         RectTransform descRect = descObj.GetComponent<RectTransform>();
         descRect.anchorMin = new Vector2(0f, 0f);
         descRect.anchorMax = new Vector2(1f, 1f);
         descRect.pivot = new Vector2(0.5f, 0.5f);
-        descRect.offsetMin = new Vector2(45f, 85f);
-        descRect.offsetMax = new Vector2(-45f, -92f);
+        descRect.offsetMin = new Vector2(38f, 118f);
+        descRect.offsetMax = new Vector2(-38f, -90f);
 
         TextMeshProUGUI descTMP = descObj.GetComponent<TextMeshProUGUI>();
         descTMP.text = "Đang nạp thông tin hiện vật...";
-        descTMP.fontSize = 19f;
-        descTMP.lineSpacing = 12f;
-        descTMP.paragraphSpacing = 10f;
+        descTMP.fontSize = 18f;
+        descTMP.lineSpacing = 10f;
+        descTMP.paragraphSpacing = 8f;
         descTMP.color = new Color(0.96f, 0.97f, 1f, 1f); // Trắng sáng nổi bật trên nền đen
         descTMP.alignment = TextAlignmentOptions.TopLeft;
         descTMP.enableWordWrapping = true;
         descTMP.extraPadding = true;
+
+        // Hướng dẫn thao tác xoay 360 độ và phóng to
+        GameObject hintObj = new GameObject("Inspect3DHint", typeof(RectTransform), typeof(TextMeshProUGUI));
+        hintObj.transform.SetParent(panelObj.transform, false);
+        RectTransform hintRect = hintObj.GetComponent<RectTransform>();
+        hintRect.anchorMin = new Vector2(0f, 0f);
+        hintRect.anchorMax = new Vector2(1f, 0f);
+        hintRect.pivot = new Vector2(0.5f, 0f);
+        hintRect.sizeDelta = new Vector2(-50f, 30f);
+        hintRect.anchoredPosition = new Vector2(0f, 72f);
+
+        TextMeshProUGUI hintTMP = hintObj.GetComponent<TextMeshProUGUI>();
+        hintTMP.text = "🖱️ <b>Giữ chuột kéo:</b> Xoay 360° | <b>Cuộn chuột:</b> Zoom | Phím <b>[R]:</b> Đặt lại";
+        hintTMP.fontSize = 13.5f;
+        hintTMP.alignment = TextAlignmentOptions.Center;
+        hintTMP.color = new Color(0.85f, 0.72f, 0.38f, 0.95f);
+        hintTMP.extraPadding = true;
 
         // Nút Đóng phía dưới
         GameObject btnObj = new GameObject("CloseButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
@@ -692,8 +739,8 @@ public class InteractionSystem : MonoBehaviour
         btnRect.anchorMin = new Vector2(0.5f, 0f);
         btnRect.anchorMax = new Vector2(0.5f, 0f);
         btnRect.pivot = new Vector2(0.5f, 0f);
-        btnRect.sizeDelta = new Vector2(210f, 48f);
-        btnRect.anchoredPosition = new Vector2(0f, 20f);
+        btnRect.sizeDelta = new Vector2(210f, 44f);
+        btnRect.anchoredPosition = new Vector2(0f, 18f);
 
         Image btnImg = btnObj.GetComponent<Image>();
         btnImg.color = new Color(0.18f, 0.34f, 0.56f, 1f); // Xanh lam trang nhã

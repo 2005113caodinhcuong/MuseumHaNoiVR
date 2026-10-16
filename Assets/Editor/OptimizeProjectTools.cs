@@ -18,13 +18,15 @@ public class OptimizeProjectTools : EditorWindow
         EditorGUILayout.Space();
 
         EditorGUILayout.HelpBox(
-            "PHẦN A: TỐI ƯU HÓA ĐỒ HỌA\n" +
+            "PHẦN A: TỐI ƯU HÓA ĐỒ HỌA & KIẾN TRÚC TĨNH\n" +
             "1. Tối ưu nén tất cả file FBX (Mesh Compression High, tắt Read/Write).\n" +
-            "2. Tối ưu tất cả Texture (Bật Streaming Mipmaps, chuẩn hóa PBR).\n\n" +
+            "2. Tối ưu tất cả Texture (Bật Streaming Mipmaps, chuẩn hóa PBR).\n" +
+            "3. Tối ưu hóa kiến trúc tĩnh (Bật Static Batching & Occlusion Culling cho toàn bộ tường, sàn, trần, tủ kính).\n\n" +
             "PHẦN B: HỆ THỐNG HIỆN VẬT & TƯƠNG TÁC (TỦ 1 - 4)\n" +
-            "3. Tự động ánh xạ và gán PotteryItem + Collider cho toàn bộ 59 bình gốm theo Tủ & Số.\n" +
-            "4. Đồng bộ lại thông tin hiện vật từ file Resources/PotteryData.json vào Scene.\n" +
-            "5. Xuất thông tin hiện vật từ Scene ra file JSON.",
+            "4. Thiết lập vùng đệm 20cm chống đi xuyên cho các tủ kính.\n" +
+            "5. Tự động ánh xạ và gán PotteryItem + Collider cho toàn bộ 59 bình gốm theo Tủ & Số.\n" +
+            "6. Đồng bộ lại thông tin hiện vật từ file Resources/PotteryData.json vào Scene.\n" +
+            "7. Xuất thông tin hiện vật từ Scene ra file JSON.",
             MessageType.Info
         );
 
@@ -44,7 +46,16 @@ public class OptimizeProjectTools : EditorWindow
 
         EditorGUILayout.Space();
 
-        if (GUILayout.Button("3. Tạo BoxCollider chống đi xuyên cho tất cả Tủ Kính", GUILayout.Height(30)))
+        GUI.backgroundColor = new Color(0.35f, 0.75f, 1f, 1f);
+        if (GUILayout.Button("3. Tối ưu hóa Kiến trúc tĩnh (Static Batching & Occlusion)", GUILayout.Height(32)))
+        {
+            OptimizeStaticArchitecture();
+        }
+        GUI.backgroundColor = Color.white;
+
+        EditorGUILayout.Space();
+
+        if (GUILayout.Button("4. Tạo BoxCollider chống đi xuyên cho tất cả Tủ Kính", GUILayout.Height(30)))
         {
             CreateCabinetCollidersInEditor();
         }
@@ -53,7 +64,7 @@ public class OptimizeProjectTools : EditorWindow
         GUILayout.Label("QUẢN LÝ 59 HIỆN VẬT GỐM SỨ (TỦ 1 -> 4)", EditorStyles.boldLabel);
 
         GUI.backgroundColor = new Color(0.4f, 0.8f, 0.5f, 1f);
-        if (GUILayout.Button("4. Tự động ánh xạ & Gán PotteryItem + Collider cho 59 hiện vật", GUILayout.Height(35)))
+        if (GUILayout.Button("5. Tự động ánh xạ & Gán PotteryItem + Collider cho 59 hiện vật", GUILayout.Height(35)))
         {
             MapAndSetupAllPottery();
         }
@@ -61,14 +72,14 @@ public class OptimizeProjectTools : EditorWindow
         GUI.backgroundColor = Color.white;
         EditorGUILayout.Space(5);
 
-        if (GUILayout.Button("5. Đồng bộ lại dữ liệu từ PotteryData.json vào Scene", GUILayout.Height(30)))
+        if (GUILayout.Button("6. Đồng bộ lại dữ liệu từ PotteryData.json vào Scene", GUILayout.Height(30)))
         {
             SyncAllPotteryFromDatabase();
         }
 
         EditorGUILayout.Space(5);
 
-        if (GUILayout.Button("6. Xuất dữ liệu hiện vật trong Scene ra PotteryData.json", GUILayout.Height(30)))
+        if (GUILayout.Button("7. Xuất dữ liệu hiện vật trong Scene ra PotteryData.json", GUILayout.Height(30)))
         {
             ExportAllPotteryToDatabase();
         }
@@ -414,6 +425,88 @@ public class OptimizeProjectTools : EditorWindow
         AssetDatabase.Refresh();
 
         EditorUtility.DisplayDialog("Thành công", $"Đã xuất {items.Length} hiện vật ra file Assets/Resources/PotteryData.json!", "OK");
+    }
+
+    [MenuItem("Tools/Museum VR/Tối ưu hóa kiến trúc tĩnh (Static Batching & Occlusion)")]
+    public static void OptimizeStaticArchitecture()
+    {
+        GameObject[] allObjects = Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        int staticCount = 0;
+        int dynamicCount = 0;
+
+        StaticEditorFlags targetFlags = StaticEditorFlags.ContributeGI | 
+                                        StaticEditorFlags.OccluderStatic | 
+                                        StaticEditorFlags.BatchingStatic | 
+                                        StaticEditorFlags.NavigationStatic | 
+                                        StaticEditorFlags.OccludeeStatic | 
+                                        StaticEditorFlags.OffMeshLinkGeneration | 
+                                        StaticEditorFlags.ReflectionProbeStatic;
+
+        foreach (GameObject go in allObjects)
+        {
+            string lowerName = go.name.ToLower();
+
+            // 1. Kiểm tra đối tượng động bắt buộc: Player, Camera, Lights động, Volume, EventSystem, Canvas
+            if (lowerName.Contains("player") || 
+                go.GetComponent<CharacterController>() != null ||
+                go.GetComponentInParent<CharacterController>() != null ||
+                go.GetComponent<Camera>() != null ||
+                go.GetComponentInParent<Camera>() != null ||
+                go.GetComponent<Canvas>() != null ||
+                go.GetComponentInParent<Canvas>() != null ||
+                go.GetComponent<UnityEngine.Rendering.Volume>() != null ||
+                go.GetComponent<UnityEngine.EventSystems.EventSystem>() != null ||
+                lowerName.Contains("eventsystem") ||
+                lowerName.Contains("directional light"))
+            {
+                GameObjectUtility.SetStaticEditorFlags(go, 0);
+                EditorUtility.SetDirty(go);
+                dynamicCount++;
+                continue;
+            }
+
+            // 2. Kiểm tra hiện vật gốm sứ (PotteryItem): BẮT BUỘC ĐỂ DYNAMIC ĐỂ TƯƠNG TÁC 3D VÀ KHÔNG BỊ COMBINE MESH
+            if (go.GetComponent<PotteryItem>() != null || 
+                go.GetComponentInParent<PotteryItem>() != null)
+            {
+                GameObjectUtility.SetStaticEditorFlags(go, 0);
+                EditorUtility.SetDirty(go);
+                dynamicCount++;
+                continue;
+            }
+
+            // Kiểm tra tên hiện vật (bắt đầu bằng số hoặc "Tu") nếu chưa gắn PotteryItem
+            char firstChar = go.name.Length > 0 ? go.name[0] : ' ';
+            if ((char.IsDigit(firstChar) || go.name.StartsWith("Tu", System.StringComparison.OrdinalIgnoreCase)) &&
+                !lowerName.Contains("tukinh") && !lowerName.Contains("tuong"))
+            {
+                GameObjectUtility.SetStaticEditorFlags(go, 0);
+                EditorUtility.SetDirty(go);
+                dynamicCount++;
+                continue;
+            }
+
+            // 3. Toàn bộ kiến trúc tĩnh: Tường, Sàn, Trần, Cột, Bệ đôn, Khung kính, Đèn cố định, v.v.
+            GameObjectUtility.SetStaticEditorFlags(go, targetFlags);
+            EditorUtility.SetDirty(go);
+            staticCount++;
+        }
+
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
+            UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene()
+        );
+        UnityEditor.SceneManagement.EditorSceneManager.SaveScene(
+            UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene()
+        );
+
+        Debug.Log($"[OptimizeStaticArchitecture] Đã tối ưu hóa kiến trúc tĩnh: {staticCount} đối tượng được gán Static (Batching & Occlusion), {dynamicCount} đối tượng giữ Dynamic (Player, Camera, 59 hiện vật gốm sứ).");
+
+        EditorUtility.DisplayDialog(
+            "Tối ưu hóa kiến trúc tĩnh hoàn tất",
+            $"Đã gán Static (Static Batching + Occlusion Culling + GI) cho {staticCount} thành phần kiến trúc tĩnh trong bảo tàng!\n\n" +
+            $"Đã bảo lưu {dynamicCount} đối tượng động (Nhân vật, Camera, Toàn bộ hiện vật gốm sứ 3D để tương tác mượt mà).",
+            "OK"
+        );
     }
 
     private static void SetLayerRecursively(GameObject obj, int newLayer)
