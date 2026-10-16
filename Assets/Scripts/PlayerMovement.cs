@@ -5,18 +5,18 @@ using UnityEngine.InputSystem;
 public class PlayerMovement : MonoBehaviour
 {
     [Header("MOVEMENT")]
-    [Tooltip("Tốc độ đi bộ")]
-    public float walkSpeed = 4.5f;
+    [Tooltip("Tốc độ đi bộ (mặc định 7.5 cho phòng bảo tàng rộng)")]
+    public float walkSpeed = 7.5f;
 
-    [Tooltip("Tốc độ chạy khi giữ Shift")]
-    public float sprintSpeed = 7f;
+    [Tooltip("Tốc độ chạy khi giữ Shift (mặc định 13)")]
+    public float sprintSpeed = 13.0f;
 
     [Header("MOVEMENT SMOOTH")]
     [Tooltip("Độ nhanh khi bắt đầu di chuyển")]
-    public float acceleration = 30f;
+    public float acceleration = 35f;
 
     [Tooltip("Độ nhanh khi dừng")]
-    public float deceleration = 35f;
+    public float deceleration = 40f;
 
     [Header("GRAVITY")]
     public float gravity = -20f;
@@ -25,6 +25,16 @@ public class PlayerMovement : MonoBehaviour
 
     [Header("CAMERA")]
     public Transform cameraTransform;
+
+    [Tooltip("Độ cao tầm nhìn mắt camera (3.8m = 3/4 chiều cao tủ kính ~5.1m)")]
+    public float eyeHeight = 3.8f;
+
+    [Tooltip("Tự động căn chỉnh độ cao camera khi khởi động")]
+    public bool applyEyeHeight = true;
+
+    [Header("COLLISION BUFFER")]
+    [Tooltip("Cự ly an toàn giữ khoảng cách với tủ kính (0.2m = 20cm)")]
+    public float cabinetBufferDistance = 0.2f;
 
     [Header("STATE (ĐÓNG BĂNG KHI INSPECT)")]
     [Tooltip("Cho phép người chơi di chuyển hay không")]
@@ -51,6 +61,64 @@ public class PlayerMovement : MonoBehaviour
                 cameraTransform = cam.transform;
             }
         }
+
+        // Cập nhật độ cao tầm mắt (3/4 chiều cao tủ kính = 3.8m)
+        if (cameraTransform != null && applyEyeHeight)
+        {
+            Vector3 camPos = cameraTransform.localPosition;
+            camPos.y = eyeHeight;
+            cameraTransform.localPosition = camPos;
+        }
+
+        // Tối ưu CharacterController: giảm stepOffset xuống 0.15m để không trèo/lọt qua khe hở chân vật thể
+        controller.stepOffset = 0.15f;
+
+        // Tự động thiết lập vùng đệm vững chắc 20cm cho các tủ kính và gia cố trụ cột
+        SetupSolidBarriers();
+    }
+
+    /// <summary>
+    /// Tự động thiết lập vùng đệm kiên cố quanh các tủ kính trưng bày (Display_Ceramic_*)
+    /// và gia cố trụ cột để tuyệt đối không thể đi xuyên qua.
+    /// </summary>
+    public void SetupSolidBarriers()
+    {
+        GameObject[] allObjects = Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        int cabinetCount = 0;
+        int pillarCount = 0;
+
+        foreach (GameObject go in allObjects)
+        {
+            string lowerName = go.name.ToLower();
+
+            // 1. Tủ kính trưng bày: gắn CabinetBarrier (chặn cách 20cm, không thể xuyên qua)
+            if (lowerName.StartsWith("display_ceramic") || lowerName.Contains("tukinh"))
+            {
+                CabinetBarrier barrier = go.GetComponent<CabinetBarrier>();
+                if (barrier == null)
+                {
+                    barrier = go.AddComponent<CabinetBarrier>();
+                }
+                barrier.bufferDistance = cabinetBufferDistance; // Giữ cự ly 20cm (0.2m)
+                barrier.SetupCollider();
+                cabinetCount++;
+            }
+            // 2. Trụ cột trong phòng (Tru): kéo dài BoxCollider xuống sâu dưới sàn để chống lọt gầm
+            else if (lowerName.StartsWith("tru") || lowerName.Contains("cotnha"))
+            {
+                BoxCollider col = go.GetComponent<BoxCollider>();
+                if (col != null)
+                {
+                    // Tăng chiều cao Y và hạ tâm Y để cắm sâu xuống lòng đất
+                    col.size = new Vector3(col.size.x, 1.3f, col.size.z);
+                    col.center = new Vector3(col.center.x, -0.15f, col.center.z);
+                    col.isTrigger = false;
+                    pillarCount++;
+                }
+            }
+        }
+
+        Debug.Log($"[PlayerMovement] Đã kích hoạt vùng đệm kiên cố {cabinetBufferDistance * 100f:F0}cm cho {cabinetCount} tủ kính và gia cố {pillarCount} trụ cột.");
     }
 
 
