@@ -52,9 +52,9 @@ public class CabinetBarrier : MonoBehaviour
         float totalWidthX = worldBounds.size.x + (bufferDistance * 2f);
         float totalDepthZ = worldBounds.size.z + (bufferDistance * 2f);
 
-        // Kéo chân Collider xuống sâu dưới mặt đất (-1.0m) và lên quá đầu tủ
+        // Kéo chân Collider xuống sâu dưới mặt đất (-1.0m) và lên quá đỉnh đầu nhân vật (10.0m)
         float bottomY = -1.0f; // Sâu dưới sàn để CharacterController không thể "bước trèo" qua gầm
-        float topY = Mathf.Max(worldBounds.max.y + 0.5f, 4.0f);
+        float topY = Mathf.Max(worldBounds.max.y + 2.0f, 10.0f);
         float totalHeightY = topY - bottomY;
         float centerYWorld = bottomY + (totalHeightY / 2f);
 

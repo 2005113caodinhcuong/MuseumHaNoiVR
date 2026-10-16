@@ -26,8 +26,8 @@ public class PlayerMovement : MonoBehaviour
     [Header("CAMERA")]
     public Transform cameraTransform;
 
-    [Tooltip("Độ cao tầm nhìn mắt camera (3.8m = 3/4 chiều cao tủ kính ~5.1m)")]
-    public float eyeHeight = 3.8f;
+    [Tooltip("Độ cao tầm nhìn mắt camera (6.0m tương ứng đỉnh đầu nhân vật cao 6.5m)")]
+    public float eyeHeight = 6.0f;
 
     [Tooltip("Tự động căn chỉnh độ cao camera khi khởi động")]
     public bool applyEyeHeight = true;
@@ -51,6 +51,21 @@ public class PlayerMovement : MonoBehaviour
     {
         controller = GetComponent<CharacterController>();
 
+        // Áp dụng thông số Character Controller theo đúng thiết lập yêu cầu
+        if (controller != null)
+        {
+            controller.slopeLimit = 45f;
+            controller.stepOffset = 0.15f;
+            controller.skinWidth = 0.08f;
+            controller.minMoveDistance = 0.001f;
+            controller.radius = 0.3f;
+            controller.height = 6.5f;
+
+            // Đảm bảo Center Y = Height / 2 = 3.25m để chân nhân vật đứng khít trên sàn.
+            // Triệt tiêu hoàn toàn lỗi chìm 2.35m dưới lòng đất nếu giữ Center Y = 0.9m.
+            controller.center = new Vector3(0f, 3.25f, 0f);
+        }
+
         // Tự tìm Camera nếu chưa kéo vào
         if (cameraTransform == null)
         {
@@ -62,16 +77,12 @@ public class PlayerMovement : MonoBehaviour
             }
         }
 
-        // Cập nhật độ cao tầm mắt (3/4 chiều cao tủ kính = 3.8m)
+        // Cập nhật vị trí Camera: Đặt ngay tâm đỉnh đầu nhân vật (First Person: x = 0, z = 0, y = eyeHeight)
+        // Triệt tiêu hoàn toàn độ lệch lùi z = -2.68m giúp tương tác sát gần bình gốm
         if (cameraTransform != null && applyEyeHeight)
         {
-            Vector3 camPos = cameraTransform.localPosition;
-            camPos.y = eyeHeight;
-            cameraTransform.localPosition = camPos;
+            cameraTransform.localPosition = new Vector3(0f, eyeHeight, 0f);
         }
-
-        // Tối ưu CharacterController: giảm stepOffset xuống 0.15m để không trèo/lọt qua khe hở chân vật thể
-        controller.stepOffset = 0.15f;
 
         // Tự động thiết lập vùng đệm vững chắc 20cm cho các tủ kính và gia cố trụ cột
         SetupSolidBarriers();

@@ -2,6 +2,7 @@
 using UnityEngine;
 using UnityEditor;
 using System.IO;
+using System.Collections.Generic;
 
 public class OptimizeProjectTools : EditorWindow
 {
@@ -13,42 +14,63 @@ public class OptimizeProjectTools : EditorWindow
 
     private void OnGUI()
     {
-        GUILayout.Label("Museum VR - Công cụ Tối ưu hóa Nhanh", EditorStyles.boldLabel);
+        GUILayout.Label("Museum VR - Bộ Công cụ Tối ưu & Tương tác Hiện vật", EditorStyles.boldLabel);
         EditorGUILayout.Space();
 
         EditorGUILayout.HelpBox(
+            "PHẦN A: TỐI ƯU HÓA ĐỒ HỌA\n" +
             "1. Tối ưu nén tất cả file FBX (Mesh Compression High, tắt Read/Write).\n" +
-            "2. Tối ưu tất cả Texture (Bật Streaming Mipmaps, chuẩn hóa Normal/PBR, nén Max Size).\n" +
-            "3. Tự động gán Layer 'Interactable' cho các hiện vật gốm trong Scene.",
+            "2. Tối ưu tất cả Texture (Bật Streaming Mipmaps, chuẩn hóa PBR).\n\n" +
+            "PHẦN B: HỆ THỐNG HIỆN VẬT & TƯƠNG TÁC (TỦ 1 - 4)\n" +
+            "3. Tự động ánh xạ và gán PotteryItem + Collider cho toàn bộ 59 bình gốm theo Tủ & Số.\n" +
+            "4. Đồng bộ lại thông tin hiện vật từ file Resources/PotteryData.json vào Scene.\n" +
+            "5. Xuất thông tin hiện vật từ Scene ra file JSON.",
             MessageType.Info
         );
 
         EditorGUILayout.Space();
 
-        if (GUILayout.Button("1. Reimport & Nén toàn bộ FBX", GUILayout.Height(35)))
+        if (GUILayout.Button("1. Reimport & Nén toàn bộ FBX", GUILayout.Height(30)))
         {
             OptimizeAllFBX();
         }
 
         EditorGUILayout.Space();
 
-        if (GUILayout.Button("2. Reimport & Chuẩn hóa toàn bộ Textures", GUILayout.Height(35)))
+        if (GUILayout.Button("2. Reimport & Chuẩn hóa toàn bộ Textures", GUILayout.Height(30)))
         {
             OptimizeAllTextures();
         }
 
         EditorGUILayout.Space();
 
-        if (GUILayout.Button("3. Tự động gán Layer 'Interactable' cho đồ gốm trong Scene", GUILayout.Height(35)))
-        {
-            AssignInteractableLayers();
-        }
-
-        EditorGUILayout.Space();
-
-        if (GUILayout.Button("4. Tạo BoxCollider chống đi xuyên cho tất cả Tủ Kính", GUILayout.Height(35)))
+        if (GUILayout.Button("3. Tạo BoxCollider chống đi xuyên cho tất cả Tủ Kính", GUILayout.Height(30)))
         {
             CreateCabinetCollidersInEditor();
+        }
+
+        EditorGUILayout.Space(10);
+        GUILayout.Label("QUẢN LÝ 59 HIỆN VẬT GỐM SỨ (TỦ 1 -> 4)", EditorStyles.boldLabel);
+
+        GUI.backgroundColor = new Color(0.4f, 0.8f, 0.5f, 1f);
+        if (GUILayout.Button("4. Tự động ánh xạ & Gán PotteryItem + Collider cho 59 hiện vật", GUILayout.Height(35)))
+        {
+            MapAndSetupAllPottery();
+        }
+
+        GUI.backgroundColor = Color.white;
+        EditorGUILayout.Space(5);
+
+        if (GUILayout.Button("5. Đồng bộ lại dữ liệu từ PotteryData.json vào Scene", GUILayout.Height(30)))
+        {
+            SyncAllPotteryFromDatabase();
+        }
+
+        EditorGUILayout.Space(5);
+
+        if (GUILayout.Button("6. Xuất dữ liệu hiện vật trong Scene ra PotteryData.json", GUILayout.Height(30)))
+        {
+            ExportAllPotteryToDatabase();
         }
     }
 
@@ -62,34 +84,13 @@ public class OptimizeProjectTools : EditorWindow
             string lowerName = go.name.ToLower();
             if (lowerName.StartsWith("display_ceramic") || lowerName.Contains("tukinh"))
             {
-                Renderer[] renderers = go.GetComponentsInChildren<Renderer>();
-                if (renderers.Length == 0) continue;
-
-                Bounds worldBounds = renderers[0].bounds;
-                for (int i = 1; i < renderers.Length; i++)
+                CabinetBarrier barrier = go.GetComponent<CabinetBarrier>();
+                if (barrier == null)
                 {
-                    if (renderers[i] is ParticleSystemRenderer) continue;
-                    worldBounds.Encapsulate(renderers[i].bounds);
+                    barrier = go.AddComponent<CabinetBarrier>();
                 }
-
-                BoxCollider boxCol = go.GetComponent<BoxCollider>();
-                if (boxCol == null)
-                {
-                    boxCol = go.AddComponent<BoxCollider>();
-                }
-
-                Vector3 localCenter = go.transform.InverseTransformPoint(worldBounds.center);
-                Vector3 lossyScale = go.transform.lossyScale;
-
-                Vector3 localSize = new Vector3(
-                    lossyScale.x != 0 ? Mathf.Abs(worldBounds.size.x / lossyScale.x) : worldBounds.size.x,
-                    lossyScale.y != 0 ? Mathf.Abs(worldBounds.size.y / lossyScale.y) : worldBounds.size.y,
-                    lossyScale.z != 0 ? Mathf.Abs(worldBounds.size.z / lossyScale.z) : worldBounds.size.z
-                );
-
-                boxCol.center = localCenter;
-                boxCol.size = localSize;
-                boxCol.isTrigger = false;
+                barrier.bufferDistance = 0.2f;
+                barrier.SetupCollider();
                 EditorUtility.SetDirty(go);
                 added++;
             }
@@ -99,7 +100,7 @@ public class OptimizeProjectTools : EditorWindow
             UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene()
         );
 
-        EditorUtility.DisplayDialog("Thành công", $"Đã gắn BoxCollider vững chắc cho {added} tủ kính trưng bày!", "OK");
+        EditorUtility.DisplayDialog("Thành công", $"Đã thiết lập vùng đệm 20cm cho {added} tủ kính trưng bày!", "OK");
     }
 
     public static void OptimizeAllFBX()
@@ -209,30 +210,210 @@ public class OptimizeProjectTools : EditorWindow
         EditorUtility.DisplayDialog("Thành công", $"Đã tối ưu hóa {count} file Texture!", "OK");
     }
 
-    public static void AssignInteractableLayers()
+    [MenuItem("Tools/Museum VR/Gán PotteryItem & Collider cho 59 hiện vật (Tủ 1 - 4)")]
+    public static void MapAndSetupAllPottery()
     {
         int layerIndex = LayerMask.NameToLayer("Interactable");
         if (layerIndex == -1)
         {
-            EditorUtility.DisplayDialog("Lỗi", "Không tìm thấy Layer 'Interactable' trong TagManager!", "OK");
+            EditorUtility.DisplayDialog("Lỗi", "Chưa có Layer 'Interactable' trong TagManager! Hãy tạo Layer 6 tên 'Interactable'.", "OK");
             return;
         }
 
-        PotteryItem[] items = Object.FindObjectsByType<PotteryItem>(FindObjectsSortMode.None);
-        int changed = 0;
-
-        foreach (var item in items)
+        ArtifactDatabase db = PotteryItem.GetDatabase();
+        if (db == null)
         {
-            SetLayerRecursively(item.gameObject, layerIndex);
-            EditorUtility.SetDirty(item.gameObject);
-            changed++;
+            EditorUtility.DisplayDialog("Lỗi", "Không tìm thấy file Assets/Resources/PotteryData.json!", "OK");
+            return;
+        }
+
+        // Tạo bảng tra cứu linh hoạt
+        Dictionary<string, ArtifactData> dictById = new Dictionary<string, ArtifactData>(System.StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, ArtifactData> dictByModelKey = new Dictionary<string, ArtifactData>(System.StringComparer.OrdinalIgnoreCase);
+
+        foreach (var art in db.artifacts)
+        {
+            dictById[art.id] = art;
+            string key = $"{art.cabinetKey}_{art.number}";
+            dictByModelKey[key] = art;
+        }
+
+        GameObject[] allObjects = Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        int setupCount = 0;
+
+        foreach (GameObject go in allObjects)
+        {
+            string objName = go.name.ToLower();
+
+            // Bỏ qua các đối tượng môi trường, phòng, đèn, player, barrier
+            if (objName.Contains("camera") || objName.Contains("light") || objName.Contains("spot") ||
+                objName.Contains("led") || objName.Contains("canvas") || objName.Contains("event") ||
+                objName.Contains("player") || objName.Contains("glass") || objName.Contains("frame") ||
+                objName.Contains("wall") || objName.Contains("san") || objName.Contains("tru") ||
+                objName.Contains("tran") || objName.Contains("cot") || objName.Contains("hanhlang") ||
+                objName.Contains("dennho") || objName.Contains("bedon") || objName.Contains("barrier"))
+            {
+                continue;
+            }
+
+            if (objName.Contains("pedestal") || objName.Contains("ceramic_front") || 
+                objName.Contains("ceramic_center") || objName.Contains("ceramic_back") || 
+                objName.Contains("ceramic_left") || objName.Contains("display_ceramic"))
+            {
+                continue;
+            }
+
+            string cabinetKey = InteractionSystem.DetectCabinetKey(go.transform);
+            if (string.IsNullOrEmpty(cabinetKey)) continue;
+
+            Renderer[] rends = go.GetComponentsInChildren<Renderer>();
+            if (rends == null || rends.Length == 0) continue;
+
+            char firstChar = go.name.Length > 0 ? go.name[0] : ' ';
+            if (!char.IsDigit(firstChar) && !go.name.StartsWith("Tu", System.StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            // 1. Gán Layer Interactable cho toàn bộ các phần tử con
+            SetLayerRecursively(go, layerIndex);
+
+            // 2. Gán BoxCollider với kích thước tính chuẩn theo World Bounds
+            Bounds worldBounds = rends[0].bounds;
+            for (int i = 1; i < rends.Length; i++)
+            {
+                if (rends[i] is ParticleSystemRenderer) continue;
+                worldBounds.Encapsulate(rends[i].bounds);
+            }
+
+            BoxCollider box = go.GetComponent<BoxCollider>();
+            if (box == null)
+            {
+                box = go.AddComponent<BoxCollider>();
+            }
+
+            Vector3 localCenter = go.transform.InverseTransformPoint(worldBounds.center);
+            Vector3 lossy = go.transform.lossyScale;
+            float lx = lossy.x != 0 ? Mathf.Abs(lossy.x) : 1f;
+            float ly = lossy.y != 0 ? Mathf.Abs(lossy.y) : 1f;
+            float lz = lossy.z != 0 ? Mathf.Abs(lossy.z) : 1f;
+
+            Vector3 localSize = new Vector3(
+                worldBounds.size.x / lx,
+                worldBounds.size.y / ly,
+                worldBounds.size.z / lz
+            );
+
+            box.center = localCenter;
+            box.size = localSize * 1.2f;
+            box.isTrigger = false;
+
+            // Đảm bảo MeshCollider ở mesh con
+            foreach (Renderer rend in rends)
+            {
+                if (rend is ParticleSystemRenderer) continue;
+                MeshFilter mf = rend.GetComponent<MeshFilter>();
+                if (mf != null && mf.sharedMesh != null)
+                {
+                    MeshCollider mc = rend.GetComponent<MeshCollider>();
+                    if (mc == null)
+                    {
+                        mc = rend.gameObject.AddComponent<MeshCollider>();
+                        mc.convex = false;
+                    }
+                }
+            }
+
+            // 3. Gán PotteryItem và nạp dữ liệu từ Database
+            PotteryItem item = go.GetComponent<PotteryItem>();
+            if (item == null)
+            {
+                item = go.AddComponent<PotteryItem>();
+            }
+
+            item.cabinetName = cabinetKey;
+            item.itemNumber = go.name;
+            item.LoadFromDatabase(cabinetKey, go.name);
+
+            EditorUtility.SetDirty(go);
+            setupCount++;
         }
 
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
             UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene()
         );
 
-        EditorUtility.DisplayDialog("Thành công", $"Đã gán Layer 'Interactable' cho {changed} hiện vật gốm sứ!", "OK");
+        EditorUtility.DisplayDialog("Thành công", $"Đã hoàn tất ánh xạ và gán PotteryItem + Collider cho {setupCount} hiện vật gốm sứ!", "OK");
+    }
+
+    [MenuItem("Tools/Museum VR/Đồng bộ lại dữ liệu từ PotteryData.json vào Scene")]
+    public static void SyncAllPotteryFromDatabase()
+    {
+        ArtifactDatabase db = PotteryItem.GetDatabase();
+        if (db == null)
+        {
+            EditorUtility.DisplayDialog("Lỗi", "Không tìm thấy file Assets/Resources/PotteryData.json!", "OK");
+            return;
+        }
+
+        PotteryItem[] items = Object.FindObjectsByType<PotteryItem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        int synced = 0;
+
+        foreach (var item in items)
+        {
+            if (item.LoadFromDatabase(item.artifactId))
+            {
+                EditorUtility.SetDirty(item.gameObject);
+                synced++;
+            }
+        }
+
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
+            UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene()
+        );
+
+        EditorUtility.DisplayDialog("Thành công", $"Đã cập nhật lại thông tin cho {synced} hiện vật từ file JSON!", "OK");
+    }
+
+    [MenuItem("Tools/Museum VR/Xuất dữ liệu hiện vật từ Scene ra PotteryData.json")]
+    public static void ExportAllPotteryToDatabase()
+    {
+        PotteryItem[] items = Object.FindObjectsByType<PotteryItem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        if (items.Length == 0)
+        {
+            EditorUtility.DisplayDialog("Thông báo", "Chưa có PotteryItem nào trong Scene để xuất!", "OK");
+            return;
+        }
+
+        ArtifactDatabase db = new ArtifactDatabase();
+        db.version = "1.0";
+        db.description = "Dữ liệu hiện vật gốm sứ xuất trực tiếp từ Scene.";
+        db.total_artifacts = items.Length;
+        db.artifacts = new ArtifactData[items.Length];
+
+        for (int i = 0; i < items.Length; i++)
+        {
+            PotteryItem item = items[i];
+            db.artifacts[i] = new ArtifactData
+            {
+                id = item.artifactId,
+                cabinet = item.cabinetName,
+                number = item.itemNumber,
+                artifactName = item.artifactName,
+                material = item.material,
+                period = item.period,
+                origin = item.origin,
+                notableFeatures = item.notableFeatures,
+                description = item.description
+            };
+        }
+
+        string json = JsonUtility.ToJson(db, true);
+        string path = Path.Combine(Application.dataPath, "Resources/PotteryData.json");
+        File.WriteAllText(path, json, System.Text.Encoding.UTF8);
+        AssetDatabase.Refresh();
+
+        EditorUtility.DisplayDialog("Thành công", $"Đã xuất {items.Length} hiện vật ra file Assets/Resources/PotteryData.json!", "OK");
     }
 
     private static void SetLayerRecursively(GameObject obj, int newLayer)
