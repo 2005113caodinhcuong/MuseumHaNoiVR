@@ -99,20 +99,34 @@ public class PotteryInspector3D : MonoBehaviour
         currentDistance = defaultDistance;
         timeSinceLastDrag = 0f;
 
-        // 1. Tạo Root chứa đối tượng Inspect
+        // 1. Tạo Root chứa đối tượng Inspect và đặt vị trí ngay góc nhìn trước camera
         inspectRoot = new GameObject("3D_Pottery_Inspect_Root");
         inspectRoot.transform.SetParent(targetCam.transform, false);
+        UpdateRootPosition();
 
         // 2. Tạo Inner Pivot để xoay đúng tâm trọng tâm hình học của bình
         pivotContainer = new GameObject("PivotContainer");
         pivotContainer.transform.SetParent(inspectRoot.transform, false);
+        pivotContainer.transform.localPosition = Vector3.zero;
+        pivotContainer.transform.localRotation = Quaternion.identity;
+        pivotContainer.transform.localScale = Vector3.one;
 
         // 3. Nhân bản mô hình hiện vật
         GameObject clone = Instantiate(sourcePottery.gameObject, pivotContainer.transform);
         clone.name = "Inspected_Model_Mesh";
         clone.SetActive(true);
 
-        // 4. Triệt tiêu toàn bộ Collider và Component không cần thiết trên bản clone
+        // 4. TRIỆT TIÊU HOÀN TOÀN LỖI BÓP BIẾN DẠNG (SQUISHED/DEFORMED):
+        // Trong Scene bảo tàng, các tủ kính/kệ đôn trưng bày có scale phi đồng nhất (vd: 300 x 120 x 388),
+        // khiến các file model gốm bị tác giả scene gán localScale lệch trục để bù trừ (vd: x=0.0013, y=0.0035, z=0.0008).
+        // Khi Instantiate dưới PivotContainer (vốn có scale 1,1,1), chiếc bình bị bóp dẹt/kéo dài dị thường.
+        // Ta đặt lại localScale = Vector3.one để khôi phục 100% tỷ lệ hình học nguyên bản (1:1:1), tròn trịa,
+        // chính xác tuyệt đối như nghệ nhân 3D đã đắp nổi.
+        clone.transform.localPosition = Vector3.zero;
+        clone.transform.localRotation = sourcePottery.transform.localRotation;
+        clone.transform.localScale = Vector3.one;
+
+        // 5. Triệt tiêu toàn bộ Collider và Component không cần thiết trên bản clone
         Collider[] colliders = clone.GetComponentsInChildren<Collider>(true);
         foreach (Collider col in colliders)
         {
@@ -132,7 +146,7 @@ public class PotteryInspector3D : MonoBehaviour
             Destroy(rb);
         }
 
-        // 5. Tính toán World Bounds để căn chỉnh tâm xoay và chuẩn hóa tỷ lệ hiển thị
+        // 6. Tính toán World Bounds để căn chỉnh tâm xoay và chuẩn hóa tỷ lệ hiển thị
         Renderer[] renderers = clone.GetComponentsInChildren<Renderer>(true);
         if (renderers != null && renderers.Length > 0)
         {
@@ -144,19 +158,21 @@ public class PotteryInspector3D : MonoBehaviour
             }
 
             // Đưa trọng tâm mô hình về đúng vị trí (0, 0, 0) của PivotContainer
-            Vector3 centerOffset = clone.transform.position - totalBounds.center;
-            clone.transform.localPosition = centerOffset;
+            // Dịch chuyển chính xác bằng vector worldDelta để không bị sai lệch theo góc quay camera
+            Vector3 worldDelta = pivotContainer.transform.position - totalBounds.center;
+            clone.transform.position += worldDelta;
 
-            // Chuẩn hóa tỷ lệ kích thước: bất kể scale gốc là 0.001 hay 100, bình luôn cao ~0.85m trước mắt
+            // Chuẩn hóa tỷ lệ kích thước: áp dụng scale đồng nhất (Vector3.one * multiplier)
+            // đảm bảo bình cao ~0.85m trước mắt mà tỷ lệ hình học 3 chiều (X:Y:Z) được bảo toàn nguyên vẹn 100%
             float maxDimension = Mathf.Max(totalBounds.size.x, totalBounds.size.y, totalBounds.size.z);
-            if (maxDimension > 0.001f)
+            if (maxDimension > 0.0001f)
             {
                 float scaleMultiplier = targetVisualSize / maxDimension;
                 pivotContainer.transform.localScale = Vector3.one * scaleMultiplier;
             }
         }
 
-        // 6. Tạo đèn chiếu sáng riêng (Spotlight / Pointlight) tôn vinh vẻ đẹp men gốm
+        // 7. Tạo đèn chiếu sáng riêng (Pointlight) tôn vinh vẻ đẹp men gốm
         GameObject lightObj = new GameObject("InspectKeyLight");
         lightObj.transform.SetParent(inspectRoot.transform, false);
         lightObj.transform.localPosition = new Vector3(0.3f, 0.6f, -0.8f);
@@ -172,8 +188,6 @@ public class PotteryInspector3D : MonoBehaviour
         targetRotation = Quaternion.Euler(10f, 25f, 0f);
         currentRotation = targetRotation;
         pivotContainer.transform.localRotation = currentRotation;
-
-        UpdateRootPosition();
     }
 
     /// <summary>
