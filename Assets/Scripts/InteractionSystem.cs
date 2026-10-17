@@ -445,7 +445,7 @@ public class InteractionSystem : MonoBehaviour
 
         if (materialText != null)
         {
-            materialText.text = $"<b>Chất liệu:</b> {pottery.material}";
+            materialText.gameObject.SetActive(false); // Xoá hiển thị chất liệu theo yêu cầu
         }
 
         if (periodText != null)
@@ -455,7 +455,7 @@ public class InteractionSystem : MonoBehaviour
 
         if (featuresText != null)
         {
-            featuresText.text = $"<b>Đặc điểm:</b> {pottery.GetNotableFeatures()}";
+            featuresText.text = $"<b>Đặc điểm nổi bật:</b>\n{pottery.GetNotableFeatures()}";
         }
 
         if (descriptionText != null)
@@ -787,7 +787,7 @@ public class InteractionSystem : MonoBehaviour
         hintRect.anchoredPosition = new Vector2(0f, 72f);
 
         TextMeshProUGUI hintTMP = hintObj.GetComponent<TextMeshProUGUI>();
-        hintTMP.text = "🖱️ <b>Giữ chuột kéo:</b> Xoay 360° | <b>Cuộn chuột:</b> Zoom | Phím <b>[R]:</b> Đặt lại";
+        hintTMP.text = "<b>Giữ chuột kéo:</b> Xoay 360° | <b>Cuộn chuột:</b> Zoom | Phím <b>[R]:</b> Đặt lại";
         hintTMP.fontSize = 13.5f;
         hintTMP.alignment = TextAlignmentOptions.Center;
         hintTMP.color = new Color(0.85f, 0.72f, 0.38f, 0.95f);

@@ -52,21 +52,21 @@ public class PotteryItem : MonoBehaviour
     [HideInInspector]
     public string potteryName = "Bình gốm";
 
-    [Tooltip("Chất liệu hiện vật (VD: Gốm men hoa nâu, Đất nung, Gốm men trắng...)")]
-    public string material = "Gốm men hoa nâu";
+    [Tooltip("Chất liệu hiện vật (đã bỏ hiển thị theo yêu cầu)")]
+    public string material = "";
 
     [Tooltip("Niên đại hiện vật (VD: Thời Lý - Trần, Thế kỷ XIII - XIV)")]
     [TextArea(1, 2)]
-    public string period = "Thời Lý - Trần (Thế kỷ XIII - XIV)";
+    public string period = "";
 
-    [Tooltip("Đặc điểm nổi bật (VD: Dáng hình trụ, trang trí hoa sen men nâu...)")]
+    [Tooltip("Đặc điểm nổi bật (tự động lấy từ thuộc tính description trong file PotteryData.json)")]
     [TextArea(3, 8)]
-    public string notableFeatures = "Dáng hình trụ đứng, có nắp đậy, thân trang trí hoa văn cánh sen và men màu nâu đặc trưng.";
+    public string notableFeatures = "";
 
     [Tooltip("Nguồn gốc / Xuất xứ")]
     public string origin = "Việt Nam";
 
-    [Tooltip("Mô tả văn hóa - lịch sử chi tiết")]
+    [Tooltip("Mô tả văn hóa - lịch sử chi tiết (từ trường description trong file PotteryData.json)")]
     [TextArea(2, 6)]
     public string description = "";
 
@@ -100,9 +100,13 @@ public class PotteryItem : MonoBehaviour
             artifactName = potteryName;
         }
 
-        if (string.IsNullOrEmpty(notableFeatures) && !string.IsNullOrEmpty(description))
+        if (!string.IsNullOrEmpty(description))
         {
             notableFeatures = description;
+        }
+        else if (!string.IsNullOrEmpty(notableFeatures))
+        {
+            description = notableFeatures;
         }
 
         cachedRenderers = GetComponentsInChildren<Renderer>();
@@ -200,12 +204,14 @@ public class PotteryItem : MonoBehaviour
         cabinetName = data.cabinet;
         itemNumber = data.number;
 
-        if (!string.IsNullOrEmpty(data.artifactName)) artifactName = data.artifactName;
-        if (!string.IsNullOrEmpty(data.material)) material = data.material;
-        if (!string.IsNullOrEmpty(data.period)) period = data.period;
-        if (!string.IsNullOrEmpty(data.origin)) origin = data.origin;
-        if (!string.IsNullOrEmpty(data.notableFeatures)) notableFeatures = data.notableFeatures;
-        if (!string.IsNullOrEmpty(data.description)) description = data.description;
+        artifactName = !string.IsNullOrEmpty(data.artifactName) ? data.artifactName : "";
+        material = !string.IsNullOrEmpty(data.material) ? data.material : "";
+        period = !string.IsNullOrEmpty(data.period) ? data.period : "";
+        origin = !string.IsNullOrEmpty(data.origin) ? data.origin : "";
+
+        // Thuộc tính description trong file PotteryData.json chính là nội dung của Đặc điểm nổi bật
+        description = !string.IsNullOrEmpty(data.description) ? data.description : "";
+        notableFeatures = description;
     }
 
     /// <summary>
@@ -223,39 +229,44 @@ public class PotteryItem : MonoBehaviour
     }
 
     /// <summary>
-    /// Lấy đặc điểm nổi bật (ưu tiên notableFeatures, fallback description)
+    /// Lấy đặc điểm nổi bật (ưu tiên thuộc tính description từ file PotteryData.json)
     /// </summary>
     public string GetNotableFeatures()
     {
-        if (!string.IsNullOrEmpty(notableFeatures))
-            return notableFeatures;
+        if (!string.IsNullOrEmpty(description))
+            return description;
 
-        return description;
+        return notableFeatures;
     }
 
     /// <summary>
-    /// Chuỗi thông tin đầy đủ định dạng theo kịch bản PDF
+    /// Chuỗi thông tin đầy đủ định dạng theo yêu cầu:
+    /// - Vị trí: Chỉ hiển thị tên tủ (không kèm số hiện vật)
+    /// - Chất liệu: Đã xoá bỏ hoàn toàn
+    /// - Niên đại: Hiển thị nếu có
+    /// - Đặc điểm nổi bật: Chính là thuộc tính description trong file PotteryData.json
     /// </summary>
     public string GetFullInformation()
     {
-        string info = $"<b>Vị trí:</b> {cabinetName} (Hiện vật số {itemNumber})\n" +
-                      $"<b>Chất liệu:</b> {material}\n" +
-                      $"<b>Niên đại:</b> {period}\n";
+        // 1. Vị trí: Chỉ để mỗi tên tủ
+        string info = $"<b>Vị trí:</b> {cabinetName}\n";
+
+        // 2. Niên đại
+        if (!string.IsNullOrEmpty(period))
+        {
+            info += $"<b>Niên đại:</b> {period}\n";
+        }
 
         if (!string.IsNullOrEmpty(origin) && origin != "Việt Nam")
         {
             info += $"<b>Nguồn gốc:</b> {origin}\n";
         }
 
+        // 3. Đặc điểm nổi bật: Là thuộc tính description trong file PotteryData.json
         string features = GetNotableFeatures();
         if (!string.IsNullOrEmpty(features))
         {
-            info += $"\n<b>Đặc điểm nổi bật:</b>\n{features}\n";
-        }
-
-        if (!string.IsNullOrEmpty(description) && description != features)
-        {
-            info += $"\n<b>Ý nghĩa lịch sử - văn hóa:</b>\n{description}";
+            info += $"\n<b>Đặc điểm nổi bật:</b>\n{features}";
         }
 
         return info;
