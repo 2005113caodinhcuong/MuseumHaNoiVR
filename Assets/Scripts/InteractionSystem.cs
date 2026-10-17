@@ -461,6 +461,14 @@ public class InteractionSystem : MonoBehaviour
         if (descriptionText != null)
         {
             descriptionText.text = pottery.GetFullInformation();
+
+            // Tự động cuộn lên đầu trang nếu nội dung dài
+            ScrollRect sr = descriptionText.GetComponentInParent<ScrollRect>();
+            if (sr != null)
+            {
+                Canvas.ForceUpdateCanvases();
+                sr.verticalNormalizedPosition = 1f;
+            }
         }
 
         // 4. KÍCH HOẠT CHẾ ĐỘ QUAN SÁT 3D XOAY 360 ĐỘ
@@ -715,15 +723,48 @@ public class InteractionSystem : MonoBehaviour
         Image divImg = dividerObj.GetComponent<Image>();
         divImg.color = new Color(0.85f, 0.72f, 0.38f, 0.5f);
 
+        // Khung cuộn văn bản (ScrollView / ScrollRect) để hỗ trợ mô tả dài không bị tràn hay cắt chữ
+        GameObject scrollViewObj = new GameObject("ScrollView", typeof(RectTransform), typeof(ScrollRect), typeof(RectMask2D));
+        scrollViewObj.transform.SetParent(panelObj.transform, false);
+        RectTransform scrollRectTransform = scrollViewObj.GetComponent<RectTransform>();
+        scrollRectTransform.anchorMin = new Vector2(0f, 0f);
+        scrollRectTransform.anchorMax = new Vector2(1f, 1f);
+        scrollRectTransform.pivot = new Vector2(0.5f, 0.5f);
+        scrollRectTransform.offsetMin = new Vector2(38f, 118f);
+        scrollRectTransform.offsetMax = new Vector2(-38f, -90f);
+
+        ScrollRect scrollRect = scrollViewObj.GetComponent<ScrollRect>();
+        scrollRect.horizontal = false;
+        scrollRect.vertical = true;
+        scrollRect.movementType = ScrollRect.MovementType.Clamped;
+        scrollRect.scrollSensitivity = 28f;
+
+        // Content chứa Text có ContentSizeFitter tự động dãn theo độ dài văn bản
+        GameObject contentObj = new GameObject("Content", typeof(RectTransform), typeof(ContentSizeFitter));
+        contentObj.transform.SetParent(scrollViewObj.transform, false);
+        RectTransform contentRect = contentObj.GetComponent<RectTransform>();
+        contentRect.anchorMin = new Vector2(0f, 1f);
+        contentRect.anchorMax = new Vector2(1f, 1f);
+        contentRect.pivot = new Vector2(0.5f, 1f);
+        contentRect.sizeDelta = new Vector2(0f, 0f);
+        contentRect.anchoredPosition = Vector2.zero;
+
+        ContentSizeFitter csf = contentObj.GetComponent<ContentSizeFitter>();
+        csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        csf.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+
+        scrollRect.content = contentRect;
+        scrollRect.viewport = scrollRectTransform;
+
         // Text thông tin chi tiết đầy đủ (Độ nét cao, cỡ 18pt, trắng sáng, giãn dòng thoáng)
         GameObject descObj = new GameObject("ArtifactDetails", typeof(RectTransform), typeof(TextMeshProUGUI));
-        descObj.transform.SetParent(panelObj.transform, false);
+        descObj.transform.SetParent(contentObj.transform, false);
         RectTransform descRect = descObj.GetComponent<RectTransform>();
         descRect.anchorMin = new Vector2(0f, 0f);
         descRect.anchorMax = new Vector2(1f, 1f);
-        descRect.pivot = new Vector2(0.5f, 0.5f);
-        descRect.offsetMin = new Vector2(38f, 118f);
-        descRect.offsetMax = new Vector2(-38f, -90f);
+        descRect.pivot = new Vector2(0.5f, 1f);
+        descRect.sizeDelta = Vector2.zero;
+        descRect.anchoredPosition = Vector2.zero;
 
         TextMeshProUGUI descTMP = descObj.GetComponent<TextMeshProUGUI>();
         descTMP.text = "Đang nạp thông tin hiện vật...";
@@ -847,16 +888,21 @@ public class InteractionSystem : MonoBehaviour
             // 2. Tạo Collider chuẩn kích thước theo Renderer Bounds thực tế
             EnsureValidColliders(go, rends);
 
-            // 3. Đảm bảo có PotteryItem và nạp dữ liệu từ file JSON
+            // 3. Đảm bảo có PotteryItem và nạp dữ liệu từ file JSON (Bảo lưu dữ liệu Inspector nếu người dùng đã tùy chỉnh và tắt sync)
             PotteryItem item = go.GetComponent<PotteryItem>();
             if (item == null)
             {
                 item = go.AddComponent<PotteryItem>();
+                item.cabinetName = cabinetKey;
+                item.itemNumber = go.name;
+                item.LoadFromDatabase(cabinetKey, go.name);
             }
-
-            item.cabinetName = cabinetKey;
-            item.itemNumber = go.name;
-            item.LoadFromDatabase(cabinetKey, go.name);
+            else if (item.syncFromDatabaseOnStart)
+            {
+                item.cabinetName = cabinetKey;
+                item.itemNumber = go.name;
+                item.LoadFromDatabase(cabinetKey, go.name);
+            }
             autoSetupCount++;
         }
 

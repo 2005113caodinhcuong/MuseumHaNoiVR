@@ -6263,11 +6263,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 3867042972382629174, guid: d77f5eceab9083e45895e29aaa93d076, type: 3}
   m_PrefabInstance: {fileID: 513083450}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &528162082 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: c4fd29a68f2587a43b2863c4cda68909, type: 3}
-  m_PrefabInstance: {fileID: 1007888555}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &537862505
 GameObject:
   m_ObjectHideFlags: 0
@@ -11721,6 +11716,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Hanhlang
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: c4fd29a68f2587a43b2863c4cda68909, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
     - target: {fileID: 1095138378254327762, guid: c4fd29a68f2587a43b2863c4cda68909, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
@@ -12181,10 +12180,6 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: 891a1bfd34c7d0745a92fc70785b7364, type: 2}
-    - target: {fileID: 919132149155446097, guid: c4fd29a68f2587a43b2863c4cda68909, type: 3}
-      propertyPath: m_StaticEditorFlags
-      value: 2147483647
-      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects:
     - {fileID: -2253237123285338569, guid: c4fd29a68f2587a43b2863c4cda68909, type: 3}
@@ -15741,14 +15736,14 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1539204548}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 6.25, z: -5}
+  m_LocalRotation: {x: -0, y: -0.76938045, z: -0, w: 0.6387909}
+  m_LocalPosition: {x: 40.2, y: 6.25, z: -73.6}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1896151788}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: -100.597, z: 0}
 --- !u!114 &1539204552
 MonoBehaviour:
   m_ObjectHideFlags: 0
