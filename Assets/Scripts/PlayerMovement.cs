@@ -88,6 +88,35 @@ public class PlayerMovement : MonoBehaviour
         SetupSolidBarriers();
     }
 
+    private void Start()
+    {
+        SnapToGround();
+    }
+
+    /// <summary>
+    /// Đảm bảo nhân vật tiếp đất khít mặt sàn tại vị trí spawn, triệt tiêu nguy cơ rơi tự do từ trên cao
+    /// </summary>
+    public void SnapToGround()
+    {
+        if (controller == null)
+            controller = GetComponent<CharacterController>();
+
+        // Bắn tia từ trên cao xuống để dò tìm chính xác cao độ mặt sàn
+        Ray ray = new Ray(transform.position + Vector3.up * 1f, Vector3.down);
+        if (Physics.Raycast(ray, out RaycastHit hit, 50f))
+        {
+            bool wasEnabled = controller != null && controller.enabled;
+            if (wasEnabled) controller.enabled = false;
+
+            transform.position = new Vector3(transform.position.x, hit.point.y, transform.position.z);
+            verticalVelocity = 0f;
+            currentVelocity = Vector3.zero;
+
+            if (wasEnabled) controller.enabled = true;
+            Debug.Log($"[PlayerMovement] Tiếp đất vững chắc tại sàn Y = {hit.point.y:F2}");
+        }
+    }
+
     /// <summary>
     /// Tự động thiết lập vùng đệm kiên cố quanh các tủ kính trưng bày (Display_Ceramic_*)
     /// và gia cố trụ cột để tuyệt đối không thể đi xuyên qua.

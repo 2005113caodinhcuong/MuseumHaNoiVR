@@ -67,6 +67,7 @@ public class InteractionSystem : MonoBehaviour
     private PotteryItem lastHighlightedPottery;
     private Camera cam;
     private bool isInspecting = false;
+    public bool IsInspecting => isInspecting;
     private bool isPaused = false;
     private bool isPromptInScreenSpace = false;
 
@@ -135,6 +136,12 @@ public class InteractionSystem : MonoBehaviour
             interactableLayer = ~0;
         }
 
+        // Tự động tìm hoặc gắn MuseumTutorialManager để quản lý mở đầu và hướng dẫn tham quan
+        if (Object.FindAnyObjectByType<MuseumTutorialManager>() == null)
+        {
+            gameObject.AddComponent<MuseumTutorialManager>();
+        }
+
         // Tự động nhận diện và cấu hình hiện vật gốm trong Scene nếu chưa được gán
         EnsurePotterySetupInScene();
     }
@@ -190,6 +197,12 @@ public class InteractionSystem : MonoBehaviour
 
     private void DetectPottery()
     {
+        if (MuseumTutorialManager.IsTutorialOpen)
+        {
+            HidePrompt();
+            return;
+        }
+
         PotteryItem detectedPottery = null;
 
         if (cam != null)
@@ -345,6 +358,9 @@ public class InteractionSystem : MonoBehaviour
 
     private void CheckInteraction()
     {
+        if (MuseumTutorialManager.IsTutorialOpen)
+            return;
+
         bool ePressed = false;
         bool leftClicked = false;
         bool enterPressed = false;
@@ -507,6 +523,10 @@ public class InteractionSystem : MonoBehaviour
     private void CheckEscape()
     {
         if (Keyboard.current == null || !Keyboard.current.escapeKey.wasPressedThisFrame)
+            return;
+
+        // Bỏ qua nếu Menu hướng dẫn đang mở (TutorialManager tự xử lý)
+        if (MuseumTutorialManager.IsTutorialOpen)
             return;
 
         // 1. Nếu đang mở bảng thông tin hiện vật: Ưu tiên đóng bảng thông tin

@@ -27,7 +27,9 @@ public class OptimizeProjectTools : EditorWindow
             "5. Thiết lập vùng đệm 20cm chống đi xuyên cho các tủ kính.\n" +
             "6. Tự động ánh xạ và gán PotteryItem + Collider cho toàn bộ 59 bình gốm theo Tủ & Số.\n" +
             "7. Đồng bộ lại thông tin hiện vật từ file Resources/PotteryData.json vào Scene.\n" +
-            "8. Xuất thông tin hiện vật từ Scene ra file JSON.",
+            "8. Xuất thông tin hiện vật từ Scene ra file JSON.\n\n" +
+            "PHẦN C: TRẢI NGHIỆM NGƯỜI DÙNG & HƯỚNG DẪN THAM QUAN\n" +
+            "9. Thiết lập Menu Giới thiệu, Hướng dẫn Di chuyển & Gợi ý Tham quan (Welcome Modal, Toast Hints, Mini-HUD).",
             MessageType.Info
         );
 
@@ -93,6 +95,16 @@ public class OptimizeProjectTools : EditorWindow
         {
             ExportAllPotteryToDatabase();
         }
+
+        EditorGUILayout.Space(10);
+        GUILayout.Label("TRẢI NGHIỆM NGƯỜI DÙNG & HƯỚNG DẪN THAM QUAN", EditorStyles.boldLabel);
+
+        GUI.backgroundColor = new Color(0.95f, 0.75f, 0.35f, 1f);
+        if (GUILayout.Button("9. Thiết lập Menu Giới thiệu & Hướng dẫn Di chuyển (Welcome + Hints)", GUILayout.Height(32)))
+        {
+            SetupTutorialManagerInEditor();
+        }
+        GUI.backgroundColor = Color.white;
     }
 
     public static void CreateCabinetCollidersInEditor()
@@ -596,6 +608,50 @@ public class OptimizeProjectTools : EditorWindow
             $"• {sceneSpotCount} Đèn rọi tủ kính trong Scene: Mixed, tầm rọi 3.8m, góc mở 38° (viền mềm 22°), Soft Shadows.\n" +
             $"• {prefabSpotCount} Đèn rọi trong Prefab Tủ 2: Mixed, tầm rọi 3.8m, góc mở 38° (viền mềm 22°).\n\n" +
             $"Tổng cộng 32 đèn rọi tủ kính đã được gom gọn chùm sáng, không còn xuyên sàn hay làm cháy lóa bề mặt gốm sứ!",
+            "OK"
+        );
+    }
+
+    [MenuItem("Tools/Museum VR/Thiết lập Menu Giới thiệu & Hướng dẫn Di chuyển")]
+    public static void SetupTutorialManagerInEditor()
+    {
+        // 1. Tìm Player & Snap tiếp đất
+        PlayerMovement pm = Object.FindAnyObjectByType<PlayerMovement>();
+        if (pm != null)
+        {
+            pm.SnapToGround();
+            EditorUtility.SetDirty(pm.gameObject);
+        }
+
+        // 2. Tìm PlayerCamera hoặc InteractionSystem
+        InteractionSystem isys = Object.FindAnyObjectByType<InteractionSystem>();
+        GameObject targetGo = isys != null ? isys.gameObject : (pm != null ? pm.gameObject : null);
+
+        if (targetGo != null)
+        {
+            MuseumTutorialManager tut = targetGo.GetComponent<MuseumTutorialManager>();
+            if (tut == null)
+            {
+                tut = targetGo.AddComponent<MuseumTutorialManager>();
+            }
+            tut.showOnStart = true;
+            tut.autoSnapToGround = true;
+            EditorUtility.SetDirty(targetGo);
+        }
+
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
+            UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene()
+        );
+        UnityEditor.SceneManagement.EditorSceneManager.SaveScene(
+            UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene()
+        );
+
+        EditorUtility.DisplayDialog(
+            "Hoàn tất cấu hình",
+            "Đã thiết lập thành công Menu Giới thiệu, Hướng dẫn Thao tác và Gợi ý Di chuyển cho không gian bảo tàng!\n\n" +
+            "• Nhân vật đã được tiếp đất an toàn trên mặt sàn tại Y = 6.25.\n" +
+            "• Khi bấm Play: Menu mở đầu sẽ xuất hiện, hướng dẫn các phím WASD, Shift, E, H, Esc.\n" +
+            "• Người dùng có thể nhấn phím [H] để xem lại hướng dẫn bất cứ lúc nào.",
             "OK"
         );
     }
