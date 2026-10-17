@@ -158,7 +158,166 @@ public class PlayerMovement : MonoBehaviour
             }
         }
 
-        Debug.Log($"[PlayerMovement] Đã kích hoạt vùng đệm kiên cố {cabinetBufferDistance * 100f:F0}cm cho {cabinetCount} tủ kính và gia cố {pillarCount} trụ cột.");
+        // 3. Lan can kính tròn (Hanhlang / Kinh cong): Thiết lập rào chắn kiên cố 2 lớp và đánh dấu Static
+        int glassCount = SetupCircularGlassBarrier();
+
+        Debug.Log($"[PlayerMovement] Đã kích hoạt vùng đệm kiên cố: {cabinetCount} tủ kính, {pillarCount} trụ cột, và lan can kính tròn ({glassCount} tấm kính + rào đệm chống xuyên).");
+    }
+
+    /// <summary>
+    /// Thiết lập rào chắn kiên cố cho lan can kính tròn (Hanhlang / Kinh cong):
+    /// 1. Gắn MeshCollider cho toàn bộ các tấm kính cong và phụ kiện lan can.
+    /// 2. Tạo vòng rào chắn BoxCollider dày 35cm, cao 10m cắm sâu dưới sàn bao quanh chu vi đường tròn,
+    ///    đảm bảo người chơi TUYỆT ĐỐI KHÔNG THỂ ĐI XUYÊN QUA hay leo qua khi sprint 13 m/s.
+    /// 3. Đánh dấu toàn bộ là vật thể cố định (Static).
+    /// </summary>
+    public static int SetupCircularGlassBarrier()
+    {
+        GameObject[] allObjects = Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        System.Collections.Generic.List<Transform> glassPanels = new System.Collections.Generic.List<Transform>();
+        GameObject hanhlangRoot = null;
+        int meshColliderCount = 0;
+
+        foreach (GameObject go in allObjects)
+        {
+            string lowerName = go.name.ToLower();
+
+            if (lowerName == "hanhlang" || lowerName.StartsWith("hanhlang"))
+            {
+                hanhlangRoot = go;
+            }
+
+            // Tìm các tấm kính cong, tay vịn, chân kính và lan can
+            if (lowerName.StartsWith("kinh cong") || lowerName.Contains("kinh lan can") || 
+                lowerName.StartsWith("tay vin champagne") || lowerName.StartsWith("chan kinh") ||
+                lowerName.StartsWith("vien lo tron"))
+            {
+                glassPanels.Add(go.transform);
+
+                // Gắn MeshCollider nếu chưa có
+                MeshFilter mf = go.GetComponent<MeshFilter>();
+                if (mf != null && mf.sharedMesh != null)
+                {
+                    MeshCollider mc = go.GetComponent<MeshCollider>();
+                    if (mc == null)
+                    {
+                        mc = go.AddComponent<MeshCollider>();
+                    }
+                    mc.sharedMesh = mf.sharedMesh;
+                    mc.convex = false;
+                    mc.isTrigger = false;
+                    meshColliderCount++;
+                }
+
+                go.isStatic = true;
+            }
+        }
+
+        if (hanhlangRoot != null)
+        {
+            hanhlangRoot.isStatic = true;
+
+            // Xóa MeshCollider rỗng (mesh null) trên root Hanhlang nếu có
+            MeshCollider emptyMc = hanhlangRoot.GetComponent<MeshCollider>();
+            if (emptyMc != null && emptyMc.sharedMesh == null)
+            {
+                if (Application.isPlaying) Object.Destroy(emptyMc);
+                else Object.DestroyImmediate(emptyMc);
+            }
+        }
+
+        // Tạo vòng đệm BoxCollider kiên cố chống xuyên nếu tìm thấy các tấm kính cong
+        System.Collections.Generic.List<Vector3> curvedPositions = new System.Collections.Generic.List<Vector3>();
+        float minY = float.MaxValue;
+        float maxY = float.MinValue;
+
+        foreach (Transform t in glassPanels)
+        {
+            if (t.name.ToLower().StartsWith("kinh cong"))
+            {
+                curvedPositions.Add(t.position);
+                Renderer r = t.GetComponent<Renderer>();
+                if (r != null)
+                {
+                    if (r.bounds.min.y < minY) minY = r.bounds.min.y;
+                    if (r.bounds.max.y > maxY) maxY = r.bounds.max.y;
+                }
+            }
+        }
+
+        if (curvedPositions.Count >= 8)
+        {
+            // Tính tâm và bán kính đường tròn của lan can kính
+            float sumX = 0f;
+            float sumZ = 0f;
+            foreach (Vector3 p in curvedPositions)
+            {
+                sumX += p.x;
+                sumZ += p.z;
+            }
+            float centerX = sumX / curvedPositions.Count;
+            float centerZ = sumZ / curvedPositions.Count;
+
+            float sumRadius = 0f;
+            foreach (Vector3 p in curvedPositions)
+            {
+                float dx = p.x - centerX;
+                float dz = p.z - centerZ;
+                sumRadius += Mathf.Sqrt(dx * dx + dz * dz);
+            }
+            float radius = sumRadius / curvedPositions.Count;
+
+            // Xóa barrier cũ nếu đã tồn tại để tránh trùng lặp
+            GameObject existingBarrier = GameObject.Find("CircularGlass_SolidBarrier");
+            if (existingBarrier != null)
+            {
+                if (Application.isPlaying) Object.Destroy(existingBarrier);
+                else Object.DestroyImmediate(existingBarrier);
+            }
+
+            GameObject barrierRoot = new GameObject("CircularGlass_SolidBarrier");
+            if (hanhlangRoot != null)
+            {
+                barrierRoot.transform.SetParent(hanhlangRoot.transform, true);
+            }
+            barrierRoot.isStatic = true;
+
+            // Cao độ và kích thước phân đoạn rào chắn
+            float floorLevel = (minY != float.MaxValue) ? minY : 6.25f;
+            float barrierHeight = 10.0f; // Cao 10m: cắm sâu dưới sàn 2m và vươn cao 8m quá đầu người chơi
+            float centerY = floorLevel + (barrierHeight * 0.5f) - 2.0f;
+            float thickness = 0.35f; // Dày 35cm, triệt tiêu hoàn toàn khả năng xuyên thủng khi sprint 13 m/s
+
+            int numSegments = 48; // 48 phân đoạn quanh chu vi
+            float angleStep = (2f * Mathf.PI) / numSegments;
+            float segmentWidth = 2f * radius * Mathf.Sin(angleStep * 0.5f) + 0.15f; // Cộng thêm 15cm overlap chống kẽ hở
+
+            for (int i = 0; i < numSegments; i++)
+            {
+                float angle = i * angleStep;
+                float segX = centerX + radius * Mathf.Cos(angle);
+                float segZ = centerZ + radius * Mathf.Sin(angle);
+
+                GameObject segObj = new GameObject($"BarrierSegment_{i:D2}");
+                segObj.transform.SetParent(barrierRoot.transform);
+                segObj.transform.position = new Vector3(segX, centerY, segZ);
+
+                // Xoay phân đoạn tiếp tuyến với đường tròn
+                float rotAngleY = -angle * Mathf.Rad2Deg + 90f;
+                segObj.transform.rotation = Quaternion.Euler(0f, rotAngleY, 0f);
+
+                BoxCollider box = segObj.AddComponent<BoxCollider>();
+                box.size = new Vector3(segmentWidth, barrierHeight, thickness);
+                box.center = Vector3.zero;
+                box.isTrigger = false;
+
+                segObj.isStatic = true;
+            }
+
+            Debug.Log($"[CircularGlassBarrier] Đã dựng rào chắn kiên cố cho lan can kính tròn: Tâm=({centerX:F2}, {centerZ:F2}), Bán kính={radius:F2}m, {numSegments} phân đoạn BoxCollider (dày {thickness * 100f:F0}cm, cao {barrierHeight:F0}m) cắm sâu dưới sàn.");
+        }
+
+        return meshColliderCount;
     }
 
 

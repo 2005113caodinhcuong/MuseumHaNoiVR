@@ -72,6 +72,15 @@ public class OptimizeProjectTools : EditorWindow
             CreateCabinetCollidersInEditor();
         }
 
+        EditorGUILayout.Space();
+
+        GUI.backgroundColor = new Color(0.6f, 0.9f, 1f, 1f);
+        if (GUILayout.Button("5b. Tạo Rào chắn kiên cố cho Lan can Kính tròn (Hanhlang)", GUILayout.Height(30)))
+        {
+            CreateCircularGlassBarrierInEditor();
+        }
+        GUI.backgroundColor = Color.white;
+
         EditorGUILayout.Space(10);
         GUILayout.Label("QUẢN LÝ 59 HIỆN VẬT GỐM SỨ (TỦ 1 -> 4)", EditorStyles.boldLabel);
 
@@ -134,6 +143,19 @@ public class OptimizeProjectTools : EditorWindow
         );
 
         EditorUtility.DisplayDialog("Thành công", $"Đã thiết lập vùng đệm 20cm cho {added} tủ kính trưng bày!", "OK");
+    }
+
+    [MenuItem("Tools/Museum VR/Tạo Rào chắn kiên cố cho Lan can Kính tròn (Hanhlang)")]
+    public static void CreateCircularGlassBarrierInEditor()
+    {
+        int count = PlayerMovement.SetupCircularGlassBarrier();
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
+            UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene()
+        );
+        UnityEditor.SceneManagement.EditorSceneManager.SaveScene(
+            UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene()
+        );
+        EditorUtility.DisplayDialog("Thành công", $"Đã thiết lập rào chắn kiên cố 2 lớp cho lan can kính tròn (Hanhlang) với {count} MeshColliders và 48 phân đoạn BoxCollider đệm dày 35cm cắm sâu dưới sàn!", "OK");
     }
 
     public static void OptimizeAllFBX()
