@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.EventSystems;
+using System.Collections.Generic;
 
 /// <summary>
 /// Quản lý chế độ quan sát hiện vật 3D chi tiết (3D Inspect / Object Viewer 360°).
@@ -116,37 +117,103 @@ public class PotteryInspector3D : MonoBehaviour
         clone.name = "Inspected_Model_Mesh";
         clone.SetActive(true);
 
-        // 4. TRIỆT TIÊU HOÀN TOÀN LỖI BÓP BIẾN DẠNG (SQUISHED/DEFORMED):
-        // Trong Scene bảo tàng, các tủ kính/kệ đôn trưng bày có scale phi đồng nhất (vd: 300 x 120 x 388),
-        // khiến các file model gốm bị tác giả scene gán localScale lệch trục để bù trừ (vd: x=0.0013, y=0.0035, z=0.0008).
-        // Khi Instantiate dưới PivotContainer (vốn có scale 1,1,1), chiếc bình bị bóp dẹt/kéo dài dị thường.
-        // Ta đặt lại localScale = Vector3.one để khôi phục 100% tỷ lệ hình học nguyên bản (1:1:1), tròn trịa,
-        // chính xác tuyệt đối như nghệ nhân 3D đã đắp nổi.
-        clone.transform.localPosition = Vector3.zero;
-        clone.transform.localRotation = sourcePottery.transform.localRotation;
-        clone.transform.localScale = Vector3.one;
+        // 4. LỌC BỎ TRIỆT ĐỂ BỆ ĐÔN (PEDESTAL / CUBE / BỆ TRƯNG BÀY):
+        // Trong Scene, một số hiện vật (như Tủ 4: 11, 12, 13, 15, 19) bị tác giả Scene gán GameObject con là Cube bệ đôn vàng.
+        // Ta tự động phát hiện và tiêu hủy ngay lập tức các bệ đôn con này khỏi bản clone,
+        // đảm bảo chỉ giữ lại DUY NHẤT tác phẩm gốm sứ nghệ thuật để người xem tập trung chiêm ngưỡng.
+        List<GameObject> pedestalsToDestroy = new List<GameObject>();
+        foreach (Transform child in clone.transform)
+        {
+            if (child == null) continue;
+            string cName = child.name.ToLower();
+            if (cName.Contains("cube") || cName.Contains("pedestal") || 
+                cName.Contains("bedon") || cName.Contains("buc") || cName.Contains("ke") || cName.Contains("base"))
+            {
+                pedestalsToDestroy.Add(child.gameObject);
+                continue;
+            }
+            Renderer r = child.GetComponent<Renderer>();
+            if (r != null && r.sharedMaterial != null)
+            {
+                string matName = r.sharedMaterial.name.ToLower();
+                if (matName.Contains("pedestal") || matName.Contains("bedon"))
+                {
+                    pedestalsToDestroy.Add(child.gameObject);
+                }
+            }
+        }
+        foreach (GameObject pObj in pedestalsToDestroy)
+        {
+            DestroyImmediate(pObj);
+        }
 
         // 5. Triệt tiêu toàn bộ Collider và Component không cần thiết trên bản clone
         Collider[] colliders = clone.GetComponentsInChildren<Collider>(true);
         foreach (Collider col in colliders)
         {
-            Destroy(col);
+            DestroyImmediate(col);
         }
 
         PotteryItem[] items = clone.GetComponentsInChildren<PotteryItem>(true);
         foreach (PotteryItem item in items)
         {
-            Destroy(item);
+            DestroyImmediate(item);
         }
 
         // Tắt các script barrier hoặc rigidbody nếu có
         Rigidbody[] rbs = clone.GetComponentsInChildren<Rigidbody>(true);
         foreach (Rigidbody rb in rbs)
         {
-            Destroy(rb);
+            DestroyImmediate(rb);
         }
 
-        // 6. Tính toán World Bounds để căn chỉnh tâm xoay và chuẩn hóa tỷ lệ hiển thị
+        // 6. CHUẨN HÓA GÓC XOAY ĐỨNG TỰ NHIÊN (UPRIGHT ORIENTATION):
+        // Trong Scene bảo tàng, hiện vật được đặt đứng thẳng trên kệ theo phương thẳng đứng thế giới (Vector3.up).
+        // Ta tìm vector cục bộ của hiện vật tương ứng với hướng đứng Vector3.up trong bảo tàng
+        // để khôi phục hướng đứng chuẩn xác, không bị phụ thuộc vào việc các tủ kính cha bị xoay bù trừ (-90 độ).
+        Vector3 worldUpDir = Vector3.up;
+        Vector3 localUpInModel = sourcePottery.transform.InverseTransformDirection(worldUpDir);
+        if (localUpInModel.sqrMagnitude > 0.001f)
+        {
+            // Xoay sao cho trục đứng của đồ gốm trùng với trục Y của PivotContainer (Camera Up)
+            Quaternion alignUp = Quaternion.FromToRotation(localUpInModel.normalized, Vector3.up);
+
+            // Xác định hướng nhìn mặt trước của hiện vật (hướng ra ngoài tủ kính, về phía camera)
+            Vector3 worldFacingDir = -targetCam.transform.forward;
+            Vector3 localFacingInModel = sourcePottery.transform.InverseTransformDirection(worldFacingDir);
+            localFacingInModel = Vector3.ProjectOnPlane(localFacingInModel, localUpInModel).normalized;
+
+            if (localFacingInModel.sqrMagnitude > 0.001f)
+            {
+                Vector3 currentFacing = alignUp * localFacingInModel;
+                Vector3 targetFacing = Vector3.back; // Quay mặt trước về phía mắt người chơi
+                targetFacing = Vector3.ProjectOnPlane(targetFacing, Vector3.up).normalized;
+                if (targetFacing.sqrMagnitude > 0.001f)
+                {
+                    Quaternion alignFacing = Quaternion.FromToRotation(currentFacing, targetFacing);
+                    clone.transform.localRotation = alignFacing * alignUp;
+                }
+                else
+                {
+                    clone.transform.localRotation = alignUp;
+                }
+            }
+            else
+            {
+                clone.transform.localRotation = alignUp;
+            }
+        }
+        else
+        {
+            clone.transform.localRotation = Quaternion.identity;
+        }
+
+        // Triệt tiêu lỗi bóp méo do scale phi đồng nhất trong scene, đưa về Vector3.one nguyên bản
+        clone.transform.localPosition = Vector3.zero;
+        clone.transform.localScale = Vector3.one;
+
+        // 7. CĂN CHỈNH TÂM XOAY TUYỆT ĐỐI THEO TRỌNG TÂM HÌNH HỌC (TRUE GEOMETRIC PIVOT):
+        // Tính toán Bounding Box chỉ dựa trên DUY NHẤT các Renderer của đồ gốm sứ đã được làm sạch.
         Renderer[] renderers = clone.GetComponentsInChildren<Renderer>(true);
         if (renderers != null && renderers.Length > 0)
         {
@@ -157,13 +224,12 @@ public class PotteryInspector3D : MonoBehaviour
                 totalBounds.Encapsulate(renderers[i].bounds);
             }
 
-            // Đưa trọng tâm mô hình về đúng vị trí (0, 0, 0) của PivotContainer
-            // Dịch chuyển chính xác bằng vector worldDelta để không bị sai lệch theo góc quay camera
+            // Đưa chính xác trọng tâm hình học của riêng đồ gốm về tọa độ (0, 0, 0) của PivotContainer
             Vector3 worldDelta = pivotContainer.transform.position - totalBounds.center;
             clone.transform.position += worldDelta;
 
             // Chuẩn hóa tỷ lệ kích thước: áp dụng scale đồng nhất (Vector3.one * multiplier)
-            // đảm bảo bình cao ~0.85m trước mắt mà tỷ lệ hình học 3 chiều (X:Y:Z) được bảo toàn nguyên vẹn 100%
+            // đảm bảo đồ gốm cao ~0.85m trước mắt mà tỷ lệ hình học 3 chiều (X:Y:Z) được bảo toàn nguyên vẹn 100%
             float maxDimension = Mathf.Max(totalBounds.size.x, totalBounds.size.y, totalBounds.size.z);
             if (maxDimension > 0.0001f)
             {

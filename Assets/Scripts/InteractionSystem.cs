@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using TMPro;
+using System.Collections.Generic;
 
 public class InteractionSystem : MonoBehaviour
 {
@@ -940,6 +941,40 @@ public class InteractionSystem : MonoBehaviour
             {
                 continue;
             }
+
+            // Tách riêng các bệ đôn (Cube / Pedestal) nếu đang là con của hiện vật gốm.
+            // Giữ nguyên vị trí thế giới (worldPositionStays = true) để bệ đôn nằm vững chắc trong tủ kính,
+            // nhưng chuyển thành sibling để không bị nhấc lên và không bị tính chung collider/layer tương tác.
+            List<Transform> pedestalChildren = new List<Transform>();
+            foreach (Transform child in go.transform)
+            {
+                if (child == null) continue;
+                string cName = child.name.ToLower();
+                if (cName.Contains("cube") || cName.Contains("pedestal") || 
+                    cName.Contains("bedon") || cName.Contains("buc") || cName.Contains("ke") || cName.Contains("base"))
+                {
+                    pedestalChildren.Add(child);
+                    continue;
+                }
+                Renderer r = child.GetComponent<Renderer>();
+                if (r != null && r.sharedMaterial != null)
+                {
+                    string mName = r.sharedMaterial.name.ToLower();
+                    if (mName.Contains("pedestal") || mName.Contains("bedon"))
+                    {
+                        pedestalChildren.Add(child);
+                    }
+                }
+            }
+            foreach (Transform pTr in pedestalChildren)
+            {
+                pTr.SetParent(go.transform.parent, true);
+                pTr.gameObject.layer = LayerMask.NameToLayer("Default");
+            }
+
+            // Cập nhật lại danh sách renderer chỉ bao gồm phần thân gốm sứ
+            rends = go.GetComponentsInChildren<Renderer>();
+            if (rends == null || rends.Length == 0) continue;
 
             // 1. Gán Layer Interactable đệ quy cho toàn bộ object và con cháu
             SetLayerRecursively(go, interactableLayerIndex);
