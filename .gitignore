@@ -33,3 +33,6 @@ sysinfo.txt
 *.apk
 *.aab
 *.unitypackage
+
+# Documentation
+Docs/

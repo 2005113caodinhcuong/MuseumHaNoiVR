@@ -834,6 +834,38 @@ public class InteractionSystem : MonoBehaviour
     }
 
     /// <summary>
+    /// Nhận diện các tấm kính có text/hoa văn của tủ kính để không cấu hình PotteryItem và không đổi sang Layer Interactable
+    /// </summary>
+    public static bool IsGlassTextArtifact(GameObject go)
+    {
+        if (go == null) return false;
+
+        string lower = go.name.ToLower();
+
+        // 1. Tên bắt đầu hoặc chứa các tiền tố/marker kính text giới thiệu
+        if (lower.StartsWith("kinh") || lower.Contains("sen_kinh") || 
+            lower.Contains("kinh_7_14") || lower.Contains("hoa_phu_dieu") || 
+            lower.Contains("tam_kinh") || lower.Contains("chuphap"))
+        {
+            return true;
+        }
+
+        // 2. Kiểm tra các con trực tiếp: nếu chứa submesh đặc trưng của kính text (1_3, 4_6, ..., 26.fbx)
+        foreach (Transform child in go.transform)
+        {
+            if (child == null) continue;
+            string cName = child.name;
+            if (cName.Contains("Kinh_7_14") || cName.Contains("Chu_trang_nga") || 
+                cName.Contains("Sen_Kinh") || cName.Contains("Kinh_den_khoi"))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Tự động quét và cấu hình toàn bộ hiện vật gốm trong Scene
     /// </summary>
     public void EnsurePotterySetupInScene()
@@ -878,6 +910,13 @@ public class InteractionSystem : MonoBehaviour
             // Kiểm tra tên hiện vật: phải bắt đầu bằng chữ số (ví dụ: 1..26, 18_01, 5-1...)
             char firstChar = go.name.Length > 0 ? go.name[0] : ' ';
             if (!char.IsDigit(firstChar) && !go.name.StartsWith("Tu", System.StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            // Bỏ qua các tấm kính text giới thiệu của tủ kính (1_3, 4_6, 4_8, 6_9, 7_10, 9_11, 10_13, 11_14, 14_17, 15_18, 18_22, 19_21, 23_25, 26.fbx, Kinhhoa...)
+            // Giữ nguyên cố định cùng tủ kính, ở Layer Default, không gán PotteryItem và không hiển thị tương tác
+            if (IsGlassTextArtifact(go))
             {
                 continue;
             }

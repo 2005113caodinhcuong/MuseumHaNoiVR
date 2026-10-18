@@ -330,6 +330,11 @@ public class OptimizeProjectTools : EditorWindow
                 continue;
             }
 
+            if (InteractionSystem.IsGlassTextArtifact(go))
+            {
+                continue;
+            }
+
             // 1. Gán Layer Interactable cho toàn bộ các phần tử con
             SetLayerRecursively(go, layerIndex);
 
