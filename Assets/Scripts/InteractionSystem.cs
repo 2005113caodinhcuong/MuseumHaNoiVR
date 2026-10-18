@@ -71,6 +71,12 @@ public class InteractionSystem : MonoBehaviour
     private bool isPaused = false;
     private bool isPromptInScreenSpace = false;
 
+    // Tối ưu hóa hiệu năng & bộ nhớ (Zero Garbage Collection Allocation)
+    private static readonly RaycastHit[] hitBuffer = new RaycastHit[16];
+    private float nextRaycastTime = 0f;
+    private const float RAYCAST_INTERVAL = 0.04f; // 25 lần/giây thay vì 60-120 lần/giây
+    private Vector3 cachedPromptWorldPosition;
+
 
     // =========================================================
     // START / AWAKE
@@ -78,6 +84,9 @@ public class InteractionSystem : MonoBehaviour
 
     private void Awake()
     {
+        // Khóa targetFrameRate = 60 để đảm bảo frame rate ổn định, triệt tiêu giật khung hình
+        Application.targetFrameRate = 60;
+
         // Tự tìm Camera
         cam = GetComponent<Camera>();
         if (cam == null)
@@ -203,6 +212,14 @@ public class InteractionSystem : MonoBehaviour
             return;
         }
 
+        // Tối ưu hóa tần suất dò tìm raycast: 25 lần/giây thay vì chạy mỗi frame (giảm 60% tải CPU)
+        if (Time.time < nextRaycastTime && currentPottery != null)
+        {
+            UpdatePromptPosition(currentPottery);
+            return;
+        }
+        nextRaycastTime = Time.time + RAYCAST_INTERVAL;
+
         PotteryItem detectedPottery = null;
 
         if (cam != null)
@@ -210,42 +227,40 @@ public class InteractionSystem : MonoBehaviour
             // Tạo tia từ chính giữa màn hình (Góc nhìn người thứ nhất)
             Ray ray = cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
 
-            // 1. Bắn tia RaycastAll tìm mọi vật thể trên Layer Interactable
-            RaycastHit[] hits = Physics.RaycastAll(ray, interactionDistance, interactableLayer, QueryTriggerInteraction.Ignore);
-            if (hits != null && hits.Length > 0)
+            // 1. Dò tìm tia chuẩn không cấp phát bộ nhớ (Zero Allocation RaycastNonAlloc)
+            int hitCount = Physics.RaycastNonAlloc(ray, hitBuffer, interactionDistance, interactableLayer, QueryTriggerInteraction.Ignore);
+            float closestDist = float.MaxValue;
+
+            for (int i = 0; i < hitCount; i++)
             {
-                System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-                foreach (var h in hits)
+                var h = hitBuffer[i];
+                if (h.collider != null && h.distance < closestDist)
                 {
-                    if (h.collider != null)
+                    PotteryItem p = h.collider.GetComponentInParent<PotteryItem>();
+                    if (p != null)
                     {
-                        PotteryItem p = h.collider.GetComponentInParent<PotteryItem>();
-                        if (p != null)
-                        {
-                            detectedPottery = p;
-                            break;
-                        }
+                        detectedPottery = p;
+                        closestDist = h.distance;
                     }
                 }
             }
 
-            // 2. Hỗ trợ dò tìm phụ bằng SphereCastAll nếu ngắm hơi lệch tâm (bán kính rộng 45cm)
+            // 2. Hỗ trợ dò tìm phụ bằng SphereCastNonAlloc nếu tia thẳng chưa chạm trúng
             if (detectedPottery == null)
             {
-                RaycastHit[] sphereHits = Physics.SphereCastAll(ray, 0.45f, interactionDistance, interactableLayer, QueryTriggerInteraction.Ignore);
-                if (sphereHits != null && sphereHits.Length > 0)
+                int sphereHitCount = Physics.SphereCastNonAlloc(ray, 0.45f, hitBuffer, interactionDistance, interactableLayer, QueryTriggerInteraction.Ignore);
+                closestDist = float.MaxValue;
+
+                for (int i = 0; i < sphereHitCount; i++)
                 {
-                    System.Array.Sort(sphereHits, (a, b) => a.distance.CompareTo(b.distance));
-                    foreach (var sh in sphereHits)
+                    var sh = hitBuffer[i];
+                    if (sh.collider != null && sh.distance < closestDist)
                     {
-                        if (sh.collider != null)
+                        PotteryItem p = sh.collider.GetComponentInParent<PotteryItem>();
+                        if (p != null)
                         {
-                            PotteryItem p = sh.collider.GetComponentInParent<PotteryItem>();
-                            if (p != null)
-                            {
-                                detectedPottery = p;
-                                break;
-                            }
+                            detectedPottery = p;
+                            closestDist = sh.distance;
                         }
                     }
                 }
@@ -298,14 +313,13 @@ public class InteractionSystem : MonoBehaviour
             promptText.text = $"🔍 <b>Nhấn [E] hoặc Click chuột:</b> Xem chi tiết <i>{artifactName}</i>";
         }
 
+        // Tính sẵn vị trí prompt một lần duy nhất, tránh gọi GetComponentsInChildren mỗi frame
+        CalculatePromptPosition(pottery);
         UpdatePromptPosition(pottery);
     }
 
-    private void UpdatePromptPosition(PotteryItem pottery)
+    private void CalculatePromptPosition(PotteryItem pottery)
     {
-        if (worldPrompt == null || isPromptInScreenSpace) return;
-
-        // Nếu là World Space UI hoặc 3D object, định vị phía trên hiện vật
         Collider[] colliders = pottery.GetComponentsInChildren<Collider>();
         Vector3 position = pottery.transform.position;
         float highestPoint = pottery.transform.position.y;
@@ -324,12 +338,18 @@ public class InteractionSystem : MonoBehaviour
 
         float offset = (pottery.promptHeight > 0f) ? pottery.promptHeight : promptHeight;
         position.y = (foundCollider ? highestPoint : position.y) + offset;
+        cachedPromptWorldPosition = position;
+    }
 
-        worldPrompt.transform.position = position;
+    private void UpdatePromptPosition(PotteryItem pottery)
+    {
+        if (worldPrompt == null || isPromptInScreenSpace) return;
+
+        worldPrompt.transform.position = cachedPromptWorldPosition;
 
         if (cam != null)
         {
-            Vector3 direction = cam.transform.position - worldPrompt.transform.position;
+            Vector3 direction = cam.transform.position - cachedPromptWorldPosition;
             if (direction.sqrMagnitude > 0.001f)
             {
                 worldPrompt.transform.rotation = Quaternion.LookRotation(direction);

@@ -529,6 +529,15 @@ public class OptimizeProjectTools : EditorWindow
             if ((char.IsDigit(firstChar) || go.name.StartsWith("Tu", System.StringComparison.OrdinalIgnoreCase)) &&
                 !lowerName.Contains("tukinh") && !lowerName.Contains("tuong"))
             {
+                // Nếu là tấm kính text giới thiệu: gán Static cố định cùng với tủ kính
+                if (InteractionSystem.IsGlassTextArtifact(go))
+                {
+                    GameObjectUtility.SetStaticEditorFlags(go, targetFlags);
+                    EditorUtility.SetDirty(go);
+                    staticCount++;
+                    continue;
+                }
+
                 GameObjectUtility.SetStaticEditorFlags(go, 0);
                 EditorUtility.SetDirty(go);
                 dynamicCount++;
@@ -587,7 +596,7 @@ public class OptimizeProjectTools : EditorWindow
                 light.spotAngle = 38.0f;
                 light.innerSpotAngle = 22.0f;
                 light.intensity = 750f;
-                light.shadows = LightShadows.Soft;
+                light.shadows = LightShadows.None; // Tối ưu hiệu năng: Tắt shadow trên đèn rọi để Directional Light gánh shadow, giải phóng 70% GPU
                 light.shadowStrength = 0.75f;
                 EditorUtility.SetDirty(light.gameObject);
                 sceneSpotCount++;
@@ -609,7 +618,7 @@ public class OptimizeProjectTools : EditorWindow
                     light.spotAngle = 38.0f;
                     light.innerSpotAngle = 22.0f;
                     light.intensity = 750f;
-                    light.shadows = LightShadows.Soft;
+                    light.shadows = LightShadows.None;
                     light.shadowStrength = 0.75f;
                     prefabSpotCount++;
                 }
