@@ -67,19 +67,10 @@ public class OptimizeProjectTools : EditorWindow
 
         EditorGUILayout.Space();
 
-        if (GUILayout.Button("5. Tạo BoxCollider chống đi xuyên cho tất cả Tủ Kính", GUILayout.Height(30)))
+        if (GUILayout.Button("5. Thiết lập MeshCollider chống đi xuyên cho các Tủ Kính", GUILayout.Height(30)))
         {
             CreateCabinetCollidersInEditor();
         }
-
-        EditorGUILayout.Space();
-
-        GUI.backgroundColor = new Color(0.6f, 0.9f, 1f, 1f);
-        if (GUILayout.Button("5b. Tạo Rào chắn kiên cố cho Lan can Kính tròn (Hanhlang)", GUILayout.Height(30)))
-        {
-            CreateCircularGlassBarrierInEditor();
-        }
-        GUI.backgroundColor = Color.white;
 
         EditorGUILayout.Space(10);
         GUILayout.Label("QUẢN LÝ 59 HIỆN VẬT GỐM SỨ (TỦ 1 -> 4)", EditorStyles.boldLabel);
@@ -118,9 +109,16 @@ public class OptimizeProjectTools : EditorWindow
 
     public static void CreateCabinetCollidersInEditor()
     {
+        // Tiêu hủy rào chắn ảo nếu có để trả lại không gian thông thoáng
+        GameObject existingCircularBarrier = GameObject.Find("CircularGlass_SolidBarrier");
+        if (existingCircularBarrier != null)
+        {
+            DestroyImmediate(existingCircularBarrier);
+        }
+
         GameObject[] allObjects = Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         int added = 0;
-
+        int textAdded = 0;
         foreach (GameObject go in allObjects)
         {
             string lowerName = go.name.ToLower();
@@ -131,10 +129,36 @@ public class OptimizeProjectTools : EditorWindow
                 {
                     barrier = go.AddComponent<CabinetBarrier>();
                 }
-                barrier.bufferDistance = 0.2f;
                 barrier.SetupCollider();
                 EditorUtility.SetDirty(go);
                 added++;
+            }
+            else if (lowerName.Contains("tam_kinh") || lowerName.Contains("glass_panel") || lowerName.Contains("ly_dynasty") ||
+                     ((lowerName.Contains("glass") || lowerName.Contains("kinh")) &&
+                      (lowerName.Contains("front") || lowerName.Contains("back") || lowerName.Contains("left") || lowerName.Contains("right") || lowerName.Contains("top"))))
+            {
+                if (go.GetComponent<PotteryItem>() != null || go.GetComponentInParent<PotteryItem>() != null ||
+                    lowerName.StartsWith("sen_kinh") || lowerName.Contains("hoa_phu_dieu") ||
+                    lowerName.Contains("chuphap") || lowerName.Contains("chuviet") || lowerName.Contains("chuanh"))
+                {
+                    continue;
+                }
+
+                MeshFilter mf = go.GetComponent<MeshFilter>();
+                if (mf != null && mf.sharedMesh != null)
+                {
+                    MeshCollider mc = go.GetComponent<MeshCollider>();
+                    if (mc == null)
+                    {
+                        mc = go.AddComponent<MeshCollider>();
+                    }
+                    mc.sharedMesh = mf.sharedMesh;
+                    mc.convex = false;
+                    mc.isTrigger = false;
+                    go.layer = LayerMask.NameToLayer("Default");
+                    EditorUtility.SetDirty(go);
+                    textAdded++;
+                }
             }
         }
 
@@ -142,20 +166,7 @@ public class OptimizeProjectTools : EditorWindow
             UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene()
         );
 
-        EditorUtility.DisplayDialog("Thành công", $"Đã thiết lập vùng đệm 20cm cho {added} tủ kính trưng bày!", "OK");
-    }
-
-    [MenuItem("Tools/Museum VR/Tạo Rào chắn kiên cố cho Lan can Kính tròn (Hanhlang)")]
-    public static void CreateCircularGlassBarrierInEditor()
-    {
-        int count = PlayerMovement.SetupCircularGlassBarrier();
-        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
-            UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene()
-        );
-        UnityEditor.SceneManagement.EditorSceneManager.SaveScene(
-            UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene()
-        );
-        EditorUtility.DisplayDialog("Thành công", $"Đã thiết lập rào chắn kiên cố 2 lớp cho lan can kính tròn (Hanhlang) với {count} MeshColliders và 48 phân đoạn BoxCollider đệm dày 35cm cắm sâu dưới sàn!", "OK");
+        EditorUtility.DisplayDialog("Thành công", $"Đã thiết lập rào cản MeshCollider ôm sát mặt kính cho {added} tủ kính trưng bày và {textAdded} mảng kính giới thiệu!", "OK");
     }
 
     public static void OptimizeAllFBX()
@@ -400,10 +411,10 @@ public class OptimizeProjectTools : EditorWindow
             );
 
             box.center = localCenter;
-            box.size = localSize * 1.2f;
-            box.isTrigger = false;
+            box.size = localSize;
+            box.isTrigger = true;
 
-            // Đảm bảo MeshCollider ở mesh con
+            // Đảm bảo MeshCollider ở mesh con cũng là Trigger để không bao giờ cản trở CharacterController
             foreach (Renderer rend in rends)
             {
                 if (rend is ParticleSystemRenderer) continue;
@@ -414,8 +425,9 @@ public class OptimizeProjectTools : EditorWindow
                     if (mc == null)
                     {
                         mc = rend.gameObject.AddComponent<MeshCollider>();
-                        mc.convex = false;
                     }
+                    mc.convex = true;
+                    mc.isTrigger = true;
                 }
             }
 

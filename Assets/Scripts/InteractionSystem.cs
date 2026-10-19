@@ -229,7 +229,8 @@ public class InteractionSystem : MonoBehaviour
             Ray ray = cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
 
             // 1. Dò tìm tia chuẩn không cấp phát bộ nhớ (Zero Allocation RaycastNonAlloc)
-            int hitCount = Physics.RaycastNonAlloc(ray, hitBuffer, interactionDistance, interactableLayer, QueryTriggerInteraction.Ignore);
+            // Bật QueryTriggerInteraction.Collide để bắt trúng Trigger Collider của bình gốm bên trong tủ
+            int hitCount = Physics.RaycastNonAlloc(ray, hitBuffer, interactionDistance, interactableLayer, QueryTriggerInteraction.Collide);
             float closestDist = float.MaxValue;
 
             for (int i = 0; i < hitCount; i++)
@@ -249,7 +250,7 @@ public class InteractionSystem : MonoBehaviour
             // 2. Hỗ trợ dò tìm phụ bằng SphereCastNonAlloc nếu tia thẳng chưa chạm trúng
             if (detectedPottery == null)
             {
-                int sphereHitCount = Physics.SphereCastNonAlloc(ray, 0.45f, hitBuffer, interactionDistance, interactableLayer, QueryTriggerInteraction.Ignore);
+                int sphereHitCount = Physics.SphereCastNonAlloc(ray, 0.45f, hitBuffer, interactionDistance, interactableLayer, QueryTriggerInteraction.Collide);
                 closestDist = float.MaxValue;
 
                 for (int i = 0; i < sphereHitCount; i++)
@@ -866,7 +867,11 @@ public class InteractionSystem : MonoBehaviour
         // 1. Tên bắt đầu hoặc chứa các tiền tố/marker kính text giới thiệu
         if (lower.StartsWith("kinh") || lower.Contains("sen_kinh") || 
             lower.Contains("kinh_7_14") || lower.Contains("hoa_phu_dieu") || 
-            lower.Contains("tam_kinh") || lower.Contains("chuphap"))
+            lower.Contains("tam_kinh") || lower.Contains("chuphap") ||
+            lower.Contains("panel") || lower.Contains("ly_dynasty") ||
+            lower.Contains("chuviet") || lower.Contains("chuanh") ||
+            lower.Contains("tieu_de") || lower.Contains("nien_dai") ||
+            lower.Contains("tam_hoa") || lower.Contains("vienhoa"))
         {
             return true;
         }
@@ -875,9 +880,10 @@ public class InteractionSystem : MonoBehaviour
         foreach (Transform child in go.transform)
         {
             if (child == null) continue;
-            string cName = child.name;
-            if (cName.Contains("Kinh_7_14") || cName.Contains("Chu_trang_nga") || 
-                cName.Contains("Sen_Kinh") || cName.Contains("Kinh_den_khoi"))
+            string cName = child.name.ToLower();
+            if (cName.Contains("kinh_7_14") || cName.Contains("chu_trang_nga") || 
+                cName.Contains("sen_kinh") || cName.Contains("kinh_den_khoi") ||
+                cName.Contains("ly_dynasty") || cName.Contains("glass_panel"))
             {
                 return true;
             }
@@ -1040,24 +1046,21 @@ public class InteractionSystem : MonoBehaviour
             worldBounds.size.z / lz
         );
 
-        // Mở rộng thêm 20% để người chơi ngắm trúng dễ dàng khi đứng xa
+        // Chuẩn hóa BoxCollider thành Trigger để CharacterController tuyệt đối không va chạm vật lý,
+        // không bao giờ cản trở chuyển động của người chơi ngoài hành lang.
         box.center = localCenter;
-        box.size = localSize * 1.2f;
-        box.isTrigger = false;
+        box.size = localSize;
+        box.isTrigger = true;
 
-        // 2. Đảm bảo các Mesh con cũng có MeshCollider hỗ trợ va chạm chính xác
+        // 2. Nếu có MeshCollider ở các mesh con, cũng đặt là Trigger để chống cản trở người chơi
         foreach (Renderer rend in renderers)
         {
             if (rend is ParticleSystemRenderer) continue;
-            MeshFilter mf = rend.GetComponent<MeshFilter>();
-            if (mf != null && mf.sharedMesh != null)
+            MeshCollider mc = rend.GetComponent<MeshCollider>();
+            if (mc != null)
             {
-                MeshCollider mc = rend.GetComponent<MeshCollider>();
-                if (mc == null)
-                {
-                    mc = rend.gameObject.AddComponent<MeshCollider>();
-                    mc.convex = false;
-                }
+                mc.convex = true;
+                mc.isTrigger = true;
             }
         }
     }
