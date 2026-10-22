@@ -11053,7 +11053,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 2147483647
+  m_StaticEditorFlags: 0
   m_IsActive: 1
 --- !u!4 &625322474
 Transform:
@@ -25429,12 +25429,13 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1494402470}
+  - component: {fileID: 1494402471}
   m_Layer: 0
   m_Name: Display_Ceramic_05
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 2147483647
+  m_StaticEditorFlags: 0
   m_IsActive: 1
 --- !u!4 &1494402470
 Transform:
@@ -25456,6 +25457,29 @@ Transform:
   - {fileID: 1607412668}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1494402471
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1494402469}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0f34a4b4b65344c68dd4bcaa8c7faabc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  pedestalPlatform: {fileID: 625322474}
+  artifactTransform: {fileID: 1607412668}
+  maxLiftHeight: 0.85
+  moveSpeed: 0.4
+  stepAmount: 0.1
+  playerDetectDistanceXZ: 6.5
+  keyMoveUp: 114
+  keyMoveDown: 102
+  keyAltUp: 273
+  keyAltDown: 274
+  autoCreate3DPanel: 1
 --- !u!4 &1499598493 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -1642408617732767468, guid: 4480931f78978d54397d35bfa73c02fa, type: 3}
@@ -31112,7 +31136,7 @@ GameObject:
   - component: {fileID: 1896151793}
   m_Layer: 0
   m_Name: PlayerCamera
-  m_TagString: Untagged
+  m_TagString: MainCamera
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0

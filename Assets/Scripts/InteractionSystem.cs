@@ -154,6 +154,9 @@ public class InteractionSystem : MonoBehaviour
 
         // Tự động nhận diện và cấu hình hiện vật gốm trong Scene nếu chưa được gán
         EnsurePotterySetupInScene();
+
+        // Tự động kiểm tra và cấu hình bệ nâng hạ đồ gốm bệ đơn (Display_Ceramic_05)
+        EnsurePedestalLiftSetup();
     }
 
     private void Start()
@@ -1134,4 +1137,20 @@ public class InteractionSystem : MonoBehaviour
 
         return "";
     }
+
+    /// <summary>
+    /// Tự động đảm bảo tủ bệ đơn Display_Ceramic_05 được gắn PedestalLiftController
+    /// </summary>
+    private void EnsurePedestalLiftSetup()
+    {
+        GameObject cabinet05 = GameObject.Find("Display_Ceramic_05");
+        if (cabinet05 != null)
+        {
+            if (cabinet05.GetComponent<PedestalLiftController>() == null)
+            {
+                cabinet05.AddComponent<PedestalLiftController>();
+            }
+        }
+    }
 }
+
